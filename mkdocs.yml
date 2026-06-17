@@ -1,0 +1,48 @@
+site_name: BigFred Documentation
+site_url: https://dcc-bigfred.github.io/docs/
+repo_url: https://github.com/dcc-bigfred/docs
+repo_name: dcc-bigfred/docs
+edit_uri: edit/main/
+
+docs_dir: content
+exclude_docs: |
+  README.md
+  LICENSE
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - awesome-pages
+  - mermaid2
+
+markdown_extensions:
+  - tables
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
