@@ -257,7 +257,7 @@ same cs), they both poll the bus and they both write to
 |---|---|---|
 | `allowed map[addr]` | `allowed_vehicles` snapshot | Gates `loco.subscribe` and estop-all scope. |
 | `byAddr map[addr] → AllowedVehicle` | same snapshot | `controllerUserIds` for drive commands. |
-| `trains []DefinedTrain` | `defined_trains` snapshot | `train.setSpeed` fan-out + drive gate (`controllerUserIds`, member `speedMultiplier` / `addr`). |
+| `trains []DefinedTrain` | `defined_trains` snapshot | `train.setSpeed` fan-out + drive gate (`controllerUserIds`, member `speedMultiplier`, timing fields, `excludeFromSpeed`, `addr`). |
 | `fnCache` per `(addr, fn)` | local | Avoids duplicate DCC function packets. |
 | WS session | JWT at upgrade | `userId`, subscribed addresses, dead-man targets. |
 

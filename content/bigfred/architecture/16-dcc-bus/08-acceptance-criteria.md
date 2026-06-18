@@ -71,43 +71,49 @@ scheduled.
     fire and the script receives the same `not_authorized_to_drive`
     error it would have received pre-daemon.
 13. **Train fan-out.** `train.setSpeed` on the **dcc-bus data-plane
-    WS** fans out to every powered member on the picked command
-    station; leading multiplier forced to `1.0`, non-leading members
-    scaled by `speedMultiplier`, `Reversed` flip applied; aggregate
-    `ack` lists per-member outcomes (§4.2).
-14. **Roster invalidation.** Adding a vehicle to the layout's
+    WS** fans out to every powered, non-excluded member on the picked
+    command station; leading multiplier forced to `1.0`, non-leading
+    members scaled by `speedMultiplier`, `Reversed` flip applied;
+    aggregate `ack` lists per-member outcomes (§4.2).
+14. **Train member timing.** With `startDelayMs`, `accelRampMs`, or
+    `brakeRampMs` set on a member, `train.setSpeed` may defer writes
+    via `TrainSpeedScheduler` (start delay, acceleration/braking ramps).
+    A new slider move cancels pending ramps for that train. Accordion
+    headers in the Throttle show per-member `loco.state.speed` while
+    ramps run (§6.3a, §7e.4.1).
+15. **Roster invalidation.** Adding a vehicle to the layout's
     roster (`POST /api/v1/layouts/{id}/vehicles`) publishes
     `bigfred:layout:<L>:vehicles`; within 100 ms the daemon's
     interesting set widens, the poller picks up the new addr (on
     its next subscriber), and existing throttle pages can
     `loco.subscribe` without restart.
-15. **Hot reload of `dcc-bus` programs.** Attaching a new command
+16. **Hot reload of `dcc-bus` programs.** Attaching a new command
     station to a non-system layout, then logging in and selecting
     it, causes `SupervisordService.UpsertProgram` and
     `supervisorctl reread` + `update` to add the new entry — **no
     full supervisord daemon restart** (verifiable: PID of the
     supervisord process stays stable across the operation).
-16. **Port pool exhaustion.** When `[9200, 9299]` is fully allocated,
+17. **Port pool exhaustion.** When `[9200, 9299]` is fully allocated,
     `session.setCommandStation` ack returns
     `ack { ok:false, error:"no_dcc_bus_ports_available" }`; the
     server logs a warning, and operator action (widen `--dcc-bus-port-max`)
     re-enables it.
-17. **JWT mismatch.** A WS upgrade to `dcc-bus-1-2` with a JWT
+18. **JWT mismatch.** A WS upgrade to `dcc-bus-1-2` with a JWT
     pinned to a different `layoutId` is closed with HTTP 403; the
     daemon's stderr contains a structured `jwt_layout_mismatch` log.
-18. **Audit fan-in.** A `system.estop` from a driver appears in
+19. **Audit fan-in.** A `system.estop` from a driver appears in
     `loco-server`'s audit log as `session.emergency_executed`,
     even though the WS frame never touched `loco-server`'s WS.
     Source attribution (`Metadata.source = "dcc_bus_estop"`) is
     present.
-19. **Cold restart of `loco-server` preserves daemons.** Stopping
+20. **Cold restart of `loco-server` preserves daemons.** Stopping
     just `loco-server` (not supervisord) leaves the `dcc-bus-*`
     programs running. Restarting `loco-server` reads
     `dcc-bus:ports` from Redis, re-publishes the same desired state
     to supervisord, and the WS sessions continue (the `controlWs`
     on the browser reconnects with backoff; the `dccBusWs` never
     blinks).
-20. **Cold restart of supervisord re-creates daemons.** Killing
+21. **Cold restart of supervisord re-creates daemons.** Killing
     supervisord with `SIGKILL` is followed by `loco-server`'s
     `tryRespawnDaemon` (§7d.3) bringing it back. supervisord's
     `[program:dcc-bus-…]` entries from the rendered config restart

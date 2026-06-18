@@ -159,16 +159,69 @@ When a **train** is selected:
   data-plane WS** (`useDccBus().setTrainSpeed`, debounced via
   `useDebouncedTrainSpeedSend`) — not on `loco-server`'s control plane;
 - speed and direction are read from the **leading member's**
-  `loco.state` (first powered member in `Position` order);
+  `loco.state` (first powered, non-excluded member in `Position` order);
 - the client **`loco.subscribe`s every powered member address** on the
   data plane (no `train.subscribe`);
 - the function area becomes `<TrainFunctionAccordions>` — one collapsed
-  accordion per powered member, leading first; each body is that
-  member's `<FunctionGridButton>` grid wired to `loco.toggleFn` on the
-  data plane;
-- the train owner sees a **cog** on non-leading members that opens
-  `<TrainMemberSettingsDialog>` and persists `speedMultiplier` via
-  `PATCH /api/v1/trains/{id}/members/{memberId}` (lessees: cog hidden).
+  accordion per powered member, leading first; each summary shows the
+  member name, a small **current DCC speed** read from that member's
+  `loco.state`, and (for the leading vehicle) a *prowadzący* chip;
+  each body is that member's `<FunctionGridButton>` grid wired to
+  `loco.toggleFn` on the data plane;
+- the train owner sees a **cog** on **every** powered member (including
+  the leading one) that opens `<TrainMemberSettingsDialog>` and persists
+  per-member timing via `PATCH /api/v1/trains/{id}/members/{memberId}`
+  (lessees: cog hidden).
+
+#### Per-member settings (`TrainMemberSettingsDialog`)
+
+Owner-only cog popup. Fields depend on whether the member is the
+**leading vehicle**:
+
+| Field | Trailing members | Leading vehicle |
+|---|---|---|
+| `speedMultiplier` (0.05–4.0) | editable | **fixed 1.0** (not sent on PATCH) |
+| `excludeFromSpeed` | checkbox | **not offered** |
+| `startDelayMs` | 0 or 50–1000 ms (step 50) | editable |
+| `accelRampMs` + `accelRampMaxSteps` | 0 or 0.5–5 s (step 0.5 s), 1–10 steps | editable |
+| `brakeRampMs` + `brakeRampMaxSteps` | same ranges as accel ramp | editable |
+
+When `excludeFromSpeed` is checked on a trailing member, all timing
+fields are cleared on save and that vehicle is skipped by
+`train.setSpeed` fan-out on the daemon.
+
+Strings live under `throttle.json` → `train.memberSettings.*` (pl + en).
+
+#### How `dcc-bus` applies member timing
+
+Each `train.setSpeed` is handled by `TrainSpeedScheduler`
+(`pkgs/bigfred/dcc-bus/service/train_speed_scheduler.go`). A new command
+**cancels** any pending delay/ramp goroutines for that train.
+
+Per powered member (after computing the effective target speed from the
+slider, multiplier, and `Reversed`):
+
+1. **Acceleration ramp** — when target **>** current, `accelRampMs > 0`,
+   and either the member is already above the consist-start threshold
+   (DCC speed > 1) **or** `startDelayMs == 0`. The daemon issues
+   intermediate `setSpeed` steps in one goroutine: **apply first, then
+   `sleep`** between steps. Total ramp duration and max steps come from
+   member settings; step count is reduced until each interval is ≥
+   500 ms.
+2. **Braking ramp** — when target **<** current and `brakeRampMs > 0`.
+   Same step/sleep pattern as acceleration (including stop to 0).
+3. **Start delay** — on a consist **start** (leading vehicle was at DCC
+   speed ≤ 1), when the member is also at speed ≤ 1, `startDelayMs > 0`,
+   and acceleration ramp does **not** apply: a single `sleep`, then one
+   immediate `setSpeed` to the target.
+4. **Immediate** — otherwise the target speed is written synchronously.
+
+Acceleration ramp **takes precedence** over start delay when both could
+apply at standstill (start delay only wins when acceleration ramp is
+disabled or blocked because `startDelayMs > 0` and current speed ≤ 1).
+
+The slider witness stays the **leading** member; trailing speeds may lag
+during ramps and appear in each accordion header.
 
 ```tsx
 // ThrottlePage.tsx (ConnectedThrottle, excerpt — train branch)
@@ -183,7 +236,8 @@ const witness = states.get(trainCtx.leadingAddr);
 const { queueSpeed } = useDebouncedTrainSpeedSend(setTrainSpeed);
 
 // slider → queueSpeed(trainId, speed, forward)
-// accordions → setFunction(member.dccAddress, fn, on)
+// accordions → states.get(member.dccAddress)?.speed in header;
+//              setFunction(member.dccAddress, fn, on) in body
 ```
 
 Single-vehicle selection keeps the flat function grid and
@@ -454,6 +508,29 @@ whose `wsUrl == null` until the user selects them (selection
 triggers daemon spawn). The `<SharedBusChip>` lights up when
 `dcc-bus.opened.sharedBus === true` to surface §3a.4 rule 9 to the
 driver.
+
+#### Settings icon — connection and command-retry feedback
+
+The **settings / cog** control in `<ThrottleCockpit>` (top-right of the
+driving header) opens `<ThrottleSetupDialog>`: command-station picker,
+control-plane and data-plane connection chips, and spawn error retry
+(§17). Its icon reflects transient reliability state instead of showing
+reconnect toasts in the overlay.
+
+| Visual | Condition | `aria-label` key |
+|--------|-----------|------------------|
+| `SettingsIcon` (default) | Data plane connected; no command retry in flight | `throttle:setup.open` |
+| `CircularProgress` (small) | Data-plane reconnect after a prior successful open (`connectionLost`: `dccReconnecting`, or `status` `closed` / `error`) | `throttle:reconnecting` |
+| Rotating `SyncIcon` | A driving command or **Radio Stop** is being resent (`commandRetrying` from speed / train-speed / function hooks, or `radioStopRetrying` from `<RadioStopButton onRetryingChange>`) | `throttle:commandRetrying` |
+
+**Priority:** connection lost beats command retry; the cog is **disabled**
+while either spinner is shown so setup cannot be opened mid-handshake.
+
+`ThrottlePage` passes `connectionLost` and `commandRetrying` into
+`<ThrottleCockpit>`; radio-stop retry state is collected inside the
+cockpit from the left-toolbar `<RadioStopButton>`. Full retry budgets
+and WebSocket backoff are documented in
+[§17 Reliability](./17-reliability.md).
 
 ### 6.3e Vehicle catalogue and function editor
 

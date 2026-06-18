@@ -77,6 +77,15 @@ does **not** mediate driving:
   - **Single command station.** A train is driven on the session's
     currently picked command station (§4.5); all members must be on
     that station's layout roster.
+  - **Per-member timing (ramps & start delay).** After computing each
+    member's target speed, `dcc-bus` may schedule **start delay**,
+    **acceleration ramp**, or **braking ramp** instead of an immediate
+    write. Settings are persisted on `TrainMember` and carried in the
+    `defined_trains` Redis snapshot (`startDelayMs`, `accelRampMs`,
+    `accelRampMaxSteps`, `brakeRampMs`, `brakeRampMaxSteps`). Members
+    with `excludeFromSpeed: true` are omitted from fan-out. A new
+    `train.setSpeed` cancels pending ramps for that train. See
+    §6.3a and `pkgs/bigfred/dcc-bus/service/train_speed_scheduler.go`.
 - `system.estop` `{}` – emergency stop. Hosted by `dcc-bus` once §7e
   ships; scope is the command station this `dcc-bus` owns (not a
   global track-power cut). On `loco-server`'s baseline WS the scope

@@ -135,6 +135,12 @@ type TrainMember struct {
     Position   int     // ordering inside the train
     Reversed   bool    // vehicle coupled the other way around
     SpeedMultiplier float64 // scales non-leading members at train.setSpeed fan-out (default 1.0; leading forced to 1.0)
+    ExcludeFromSpeed  bool // when true, train.setSpeed skips this member entirely
+    StartDelayMs    int  // consist-start hold-off before first speed write (0 or 50–1000 ms, step 50)
+    AccelRampMs     int  // acceleration ramp duration (0 or 500–5000 ms, step 500); applied by dcc-bus
+    AccelRampMaxSteps int // max steps for acceleration ramp (1–10)
+    BrakeRampMs     int  // braking ramp duration (0 or 500–5000 ms, step 500); applied by dcc-bus
+    BrakeRampMaxSteps int // max steps for braking ramp (1–10)
 }
 ```
 

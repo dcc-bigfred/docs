@@ -108,9 +108,9 @@ type ThrottleState = {
 10. **dcc-bus crash / restart.** The data-plane WS drops with
     `ECONNREFUSED`. The SPA retries with exponential backoff and
     re-subscribes on success. The control plane never blinks; the
-    user sees a transient `loco.error { code:"command_station_disconnected" }`
-    in the overlay and a "Reconnecting…" toast until the daemon is
-    back.
+    user sees a transient `loco.error` banner when applicable.
+    **Current client parameters and UI indicators** are documented in
+    [§17 Reliability](../17-reliability.md).
 
 #### Vehicle picker inside the overlay
 
@@ -130,11 +130,15 @@ train:
 - subscribes to **every powered member's** DCC address via
   `loco.subscribe` on `dccBusWs` (no `train.subscribe`);
 - drives the consist via `train.setSpeed` on **`dccBusWs`** (data
-  plane), debounced like `loco.setSpeed`;
+  plane), debounced like `loco.setSpeed`; per-member start delay and
+  acceleration/braking ramps are applied inside `dcc-bus`
+  (`TrainSpeedScheduler`, §7e.4.1);
 - reads speed/direction from the **leading member's** `loco.state`;
 - renders per-member function toggles as collapsible accordions
-  (`TrainFunctionAccordions`, §6.3a); each toggle is still
-  `loco.toggleFn` on `dccBusWs`.
+  (`TrainFunctionAccordions`, §6.3a); each summary shows the member's
+  live DCC speed; owner cog opens `TrainMemberSettingsDialog` for
+  multiplier (trailing only), `excludeFromSpeed`, and timing fields;
+  each toggle is still `loco.toggleFn` on `dccBusWs`.
 
 #### Throttle component tree
 

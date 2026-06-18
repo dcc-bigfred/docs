@@ -88,9 +88,12 @@ GET    /api/v1/trains/{id}/scripts                                * (driving aut
 # --- Leasing ---
 POST   /api/v1/vehicles/{addr}/lease   { toUserId, expiresAt }    owner
 DELETE /api/v1/vehicles/{addr}/lease                              owner       # revoke active lease
-POST   /api/v1/trains                  { name, members:[{ vehicleId, reversed, speedMultiplier? }] }    *           # only own vehicles
+POST   /api/v1/trains                  { name, members:[{ vehicleId, reversed, speedMultiplier?, excludeFromSpeed?, startDelayMs?, accelRampMs?, accelRampMaxSteps?, brakeRampMs?, brakeRampMaxSteps? }] }    *           # only own vehicles
 PUT    /api/v1/trains/{id}             { name?, members? }                *           # owner / admin mutate
-PATCH  /api/v1/trains/{id}/members/{memberId} { speedMultiplier }       owner       # leading member immutable; republishes defined_trains
+PATCH  /api/v1/trains/{id}/members/{memberId} {
+         speedMultiplier?, excludeFromSpeed?, startDelayMs?,
+         accelRampMs?, accelRampMaxSteps?, brakeRampMs?, brakeRampMaxSteps?
+       }                               owner       # leading: multiplier + excludeFromSpeed immutable; timing fields editable; republishes defined_trains
 POST   /api/v1/trains/{id}/lease       { toUserId, expiresAt }    owner
 DELETE /api/v1/trains/{id}/lease                                  owner
 

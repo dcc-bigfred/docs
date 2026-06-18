@@ -32,3 +32,5 @@ carries its own `README.md` with its sub-TOC.
 18. [DCC Bus Daemon (`dcc-bus`)](./16-dcc-bus/README.md) — per-
     `(layout × command station)` sibling daemon for the throttle
     data plane; session-aware, security-policy-driven, Redis-cached
+19. [Reliability — reconnect & retry](./17-reliability.md) — WebSocket
+    backoff, command retries, DMS grace, mobile screen wake

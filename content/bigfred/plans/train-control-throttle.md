@@ -120,10 +120,12 @@ exactly as today.
   (leading member immutable, `BroadcastTrainUpdated`) — **done**.
 - **Redis snapshot already carries the member data the daemon needs**:
   `buildDefinedTrainsSnapshot` publishes `defined_trains` with each
-  member's `position`, `reversed`, `speedMultiplier` and resolved `addr`
+  member's `position`, `reversed`, `speedMultiplier`, timing fields
+  (`startDelayMs`, `accelRampMs`, `accelRampMaxSteps`, `brakeRampMs`,
+  `brakeRampMaxSteps`), `excludeFromSpeed`, and resolved `addr`
   (dummies keep `addr == null`). `SyncLayoutRosterToRedis` /
   `SyncLayoutRosterForTrain` republish on every roster, composition,
-  multiplier and DCC-address change.
+  multiplier, timing, and DCC-address change.
 - **One small publisher addition:** fold a train-level
   `ControllerUserIDs []uint` onto `DefinedTrain` (owner + active train
   lessees + takeover self-lease — the same set `UserCanDriveTrain`
@@ -273,28 +275,47 @@ drivable target.
     backend bound), with a short help line;
   - **owner-only**: when `train.ownerId !== me.id` the cog is hidden (the
     dialog is never reachable);
-  - submit → `PATCH /api/v1/trains/{id}/members/{memberId}
-    { speedMultiplier }`; on success invalidate the train query;
-  - the **leading** member shows no editable multiplier (fixed `1.0`).
+  - submit → `PATCH /api/v1/trains/{id}/members/{memberId}` with the
+    changed fields; on success invalidate the train query;
+  - the **leading** member: multiplier fixed `1.0`; **start delay** and
+    **acceleration/braking ramps** are editable on the leading vehicle too.
+
+### Member timing (start delay & ramps) — **done**
+
+Per-member fields persisted on `TrainMember` and published in
+`defined_trains`. Configured in the same cog dialog; applied by
+`dcc-bus` `TrainSpeedScheduler` on every `train.setSpeed`:
+
+| Field | Range | Role |
+|---|---|---|
+| `startDelayMs` | 0 or 50–1000 ms (step 50) | On consist start from standstill: sleep once, then target speed |
+| `accelRampMs` | 0 or 500–5000 ms (step 500) | When accelerating: stepped ramp (apply, then sleep between steps) |
+| `accelRampMaxSteps` | 1–10 | Max acceleration ramp steps |
+| `brakeRampMs` | 0 or 500–5000 ms (step 500) | When decelerating (incl. stop): stepped ramp |
+| `brakeRampMaxSteps` | 1–10 | Max braking ramp steps |
+| `excludeFromSpeed` | bool | Skip member in fan-out; clears timing on save |
+
+Priority at standstill: acceleration ramp applies only when
+`startDelayMs == 0` or current speed > 1; otherwise start delay wins.
+New `train.setSpeed` cancels pending ramps for that train.
+
+Accordion headers show each member's live `loco.state.speed`.
 
 ### i18n
 
 - Extend `throttle.json` (pl + en) with a `train` block: `train.leading`,
-  `train.member`, `train.functions`, `train.multiplier.title`,
-  `train.multiplier.field`, `train.multiplier.help`,
-  `train.multiplier.save`, `train.multiplier.cancel`,
-  `train.multiplier.leadingFixed`, plus any new error codes
-  (`train_member_multiplier_range`, `train_leading_multiplier_immutable`)
-  in `errors.json`.
+  `train.member`, `train.memberSpeed`, `train.functions`,
+  `train.multiplier.*`, `train.memberSettings.*` (start delay, accel/brake
+  ramps, `excludeFromSpeed`), plus error codes in `errors.json`.
 
 ---
 
 ## Implementation stages
 
 ```
-Stage 1 ─► Stage 2 ─► Stage 3 ─► Stage 4
-catalogue   throttle    per-member   move driving
-+ snapshot   train UI    UX           into dcc-bus
+Stage 1 ─► Stage 2 ─► Stage 3 ─► Stage 4 ─► Stage 5
+catalogue   throttle    per-member   move driving   timing &
++ snapshot   train UI    UX           into dcc-bus   ramps
 ```
 
 | Stage | Focus | Delivers | Status |
@@ -303,6 +324,7 @@ catalogue   throttle    per-member   move driving
 | **2** | Throttle drives trains | picker lists trains, leading-vehicle witness, single flat function grid still works for vehicles | **done** |
 | **3** | Per-member UX | function accordions (sessionStorage), cog popup + multiplier edit, owner gating, i18n | **done** |
 | **4** | **Re-architecture: daemon-side driving** | move `train.setSpeed` fan-out from `loco-server` into `dcc-bus` (shared `contract` helpers + `TrainSetSpeedWire`); FE sends `train.setSpeed` on the data plane; delete server `TrainControlService` + train WS constants + `dcc-bus:cmd` train path; surface train ack errors | **done** |
+| **5** | **Member timing & ramps** | `excludeFromSpeed`, `startDelayMs`, accel/brake ramp fields (DB, REST, snapshot); `TrainSpeedScheduler` in `dcc-bus`; owner settings dialog + per-member speed in accordion headers; leading may edit timing (not multiplier) | **done** |
 
 ### Stage 4 — concrete change list
 
@@ -359,6 +381,13 @@ catalogue   throttle    per-member   move driving
    hidden; they can still drive and toggle functions.
 7. A reversed member runs in the opposite DCC direction; flipping the
    direction toggle keeps the consist rigid.
+8. Set trailing member #2 `startDelayMs = 200`, stop the consist, then
+   start → member #2 lags ~200 ms behind the leading vehicle.
+9. Set `accelRampMs = 5 s`, `accelRampMaxSteps = 2` on a trailing
+   member; increase throttle from standstill with start delay off →
+   two intermediate speeds visible in the accordion header.
+10. Set `brakeRampMs` on a member; reduce throttle or press Stop →
+    stepped deceleration before reaching the target.
 
 ---
 
@@ -366,7 +395,6 @@ catalogue   throttle    per-member   move driving
 
 - Per-driver (non-persistent) multiplier overrides.
 - Trains spanning multiple command stations simultaneously.
-- Acceleration/inertia curves beyond a flat multiplier.
 - Editing the train **composition** from inside the Throttle (still done
   in the `MyTrains` catalogue via `TrainDialog`).
 
@@ -387,7 +415,8 @@ catalogue   throttle    per-member   move driving
 | Frontend data plane | `web/src/context/DccBusContext.tsx` (`setTrainSpeed`) | 4 |
 | Frontend API | `web/src/api/vehicles.ts` (train member `speedMultiplier`, member PATCH hook) | 1 |
 | Frontend hooks | `web/src/hooks/useThrottleTargetSelection.ts`, `useDebouncedTrainSpeedSend.ts`, `useTrainAccordionExpanded.ts` | 2–3 |
-| Frontend components | `web/src/components/throttle/ThrottleCockpit.tsx`, `TrainFunctionAccordions.tsx`, `TrainMemberSettingsDialog.tsx` | 3 |
+| Frontend components | `web/src/components/throttle/ThrottleCockpit.tsx`, `TrainFunctionAccordions.tsx`, `TrainMemberSettingsDialog.tsx` | 3 / 5 |
+| dcc-bus scheduler | `pkgs/bigfred/dcc-bus/service/train_speed_scheduler.go`, `cmd/train_set_speed.go` | 5 |
 | Page | `web/src/pages/ThrottlePage.tsx` (train drive now on data plane) | 2 / 4 |
 | i18n | `web/src/i18n/locales/{pl,en}/throttle.json`, `errors.json` | 3 |
 

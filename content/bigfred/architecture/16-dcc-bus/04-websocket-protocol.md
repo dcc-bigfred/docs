@@ -53,8 +53,11 @@ Throttle traffic only — every other WS action stays on
   train on this command station. The daemon reads the cached
   `defined_trains` snapshot, authorizes against the train's
   `controllerUserIds`, fans out per-member writes (leading multiplier
-  forced to `1.0`, `Reversed` flip, clamp to max speed), and returns
-  an aggregate ack with per-member outcomes. See §4.2.
+  forced to `1.0`, `excludeFromSpeed` members skipped, `Reversed` flip,
+  clamp to max speed), and returns an aggregate ack with per-member
+  outcomes. Members may be written **immediately** or via the
+  `TrainSpeedScheduler` (start delay, acceleration/braking ramps in
+  background goroutines). See §4.2 and §7e.4.1.
 - `system.estop` `{}` — **emergency stop, scoped to THIS daemon's
   command station**. Sets the user's `DriveTargets` to speed 0; does
   **not** cut track power. Available to any authenticated session of
@@ -142,6 +145,35 @@ Notably **absent** from the daemon:
    auth.elevationChanged      loco-server /api/v1/ws
 ```
 
+#### §7e.4.1 — `train.setSpeed` member timing (`TrainSpeedScheduler`)
+
+Implementation: `pkgs/bigfred/dcc-bus/service/train_speed_scheduler.go`,
+invoked from `cmd/train_set_speed.go` after resolving each member's
+target speed from the slider.
+
+Each member carries timing fields in `defined_trains`
+(`DefinedTrainMember` in `pkgs/bigfred/contract/allowedvehicles.go`).
+`HandleTrainSetSpeed` reads each member's **current** speed from the
+Redis `loco:state` cache before scheduling.
+
+| Mode | When | Behaviour |
+|---|---|---|
+| **Start delay** | Consist start (leading was at DCC ≤ 1), member at DCC ≤ 1, `startDelayMs > 0`, acceleration ramp **not** selected | One goroutine: `sleep(startDelayMs)`, then one `setSpeed` to target |
+| **Acceleration ramp** | Target > current, `accelRampMs > 0`, and (current > 1 **or** `startDelayMs == 0`) | Goroutine: first intermediate `setSpeed` **immediately**, then `sleep(interval)` between further steps until target; step size = `abs(target − current) / steps` |
+| **Braking ramp** | Target < current (including stop), `brakeRampMs > 0` | Same apply-then-sleep pattern as acceleration |
+| **Immediate** | Otherwise | Synchronous `setSpeed` in the handler goroutine |
+
+Shared rules:
+
+- Ramp duration 0 disables that ramp. Max steps 1–10; if
+  `duration / steps < 500 ms`, step count is reduced automatically.
+- A subsequent `train.setSpeed` for the same train calls `CancelTrain`
+  and aborts pending delay/ramp goroutines.
+- The WS `ack` returns after **scheduling** (not after ramps complete);
+  witnesses observe intermediate speeds via `loco.state` broadcasts.
+- Leading vehicle: multiplier always `1.0`; timing fields are
+  **editable** (same as trailing members).
+
 #### Connection lifecycle on the client
 
 The frontend opens **two** WebSockets when the user enters throttle
@@ -176,6 +208,7 @@ If the data-plane WS drops:
 
 If the daemon itself died and supervisord is restarting it
 (`autorestart=true`), the WS dial will fail with `ECONNREFUSED` for
-1–2 s; the client uses exponential backoff (same as §6.1) and
-re-tries. While the data plane is down, the control plane keeps
-running, so `session.warning` events still surface to the user.
+1–2 s; the client uses exponential backoff and re-tries (see
+[§17 Reliability](../17-reliability.md) for current intervals).
+While the data plane is down, the control plane keeps running, so
+`session.warning` events still surface to the user.
