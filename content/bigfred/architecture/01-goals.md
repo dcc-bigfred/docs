@@ -3,7 +3,10 @@
 ### Platform goals
 
 1. Be reachable from any modern browser on mobile and desktop.
-2. Provide a real-time control surface for locomotives: speed, direction,
+2. Operate **without Internet access** on the club LAN or hub image: the
+   SPA and the Go server serve all UI assets locally (fonts, CSS, JS,
+   sounds). See [§7b Offline-first frontend assets](./09b-offline-assets.md).
+3. Provide a real-time control surface for locomotives: speed, direction,
    functions, CV read/write and live status feedback from the command
    station.
 

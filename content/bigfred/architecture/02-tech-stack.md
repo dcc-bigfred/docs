@@ -20,12 +20,13 @@
 
 | Layer            | Choice                                | Rationale                                                                                  |
 |------------------|---------------------------------------|--------------------------------------------------------------------------------------------|
-| Bundler / dev    | **Vite + TypeScript**                 | Fast dev server, HMR, simple production builds.                                            |
+| Bundler / dev    | **Vite + TypeScript**                 | Fast dev server, HMR, simple production builds. All runtime assets are resolved at **`npm run build`** and served from `web/dist` — no CDN (§7b). |
 | Server state     | **TanStack Query (React Query)**      | REST caching, retries, deduplication.                                                      |
 | Client state     | **Zustand**                           | Tiny, easy to integrate with the WebSocket layer. Redux Toolkit would be overkill.         |
 | WebSocket        | **`react-use-websocket`** or a custom `useSocket` hook | Reconnect, lifecycle, simple API.                                            |
 | UI               | **Material UI (MUI v9, `@mui/material`)** | Production-ready React component library implementing Material Design. Comprehensive set of accessible components (sliders, buttons, app bar, drawer, dialogs), built-in theming, responsive breakpoints suitable for both mobile and desktop. See [MUI Getting Started](https://mui.com/material-ui/getting-started/). |
+| Fonts            | **`@fontsource/roboto`**              | Roboto is bundled into `web/dist` at build time — never loaded from Google Fonts at runtime (§7b). |
 | Icons            | **`@mui/icons-material`**             | Official Material Symbols / Material Icons packaged as React components – matches the locomotive control surface (play, stop, lightbulb, horn, etc.). |
 | Routing          | **React Router**                      | Standard.                                                                                  |
 | Codegen          | **`tygo`** (Go → TypeScript types)    | Keep the WS protocol types in sync between Go and TS automatically.                        |
-| Script editor    | **Monaco editor** (`@monaco-editor/react`) | Embedded VS-Code-style editor used on the Scripts page for JavaScript source editing (syntax highlighting, basic IntelliSense). The frontend never executes JS – it only edits and submits it to the backend. |
+| Script editor    | **Monaco editor** (`@monaco-editor/react`) | Embedded VS-Code-style editor used on the Scripts page for JavaScript source editing (syntax highlighting, basic IntelliSense). Must be vendored via `npm` and Vite — **no** `cdn.jsdelivr` loader at runtime (§7b). The frontend never executes JS – it only edits and submits it to the backend. |

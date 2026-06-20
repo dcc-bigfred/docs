@@ -1,5 +1,6 @@
 nav:
   - Home: index.md
   - BigFred: bigfred
+  - BigFred OS: os
   - Hardware: hardware
   - Decoders: decoders

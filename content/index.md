@@ -7,6 +7,8 @@ architecture, hardware deployment, and DCC decoder references.
 
 - **[BigFred](bigfred/)** — web application architecture, protocols,
   domain model, delivery milestones, and implementation plans
+- **[BigFred OS](os/)** — Raspberry Pi 5 hub image (Buildroot), read-only
+  root, `/data` persistence, and boot init
 - **[Hardware](hardware/)** — Raspberry Pi 5 hub deployment, LocoNet
   and Z21 wiring, bring-up and testing
 - **[Decoders](decoders/)** — CV reference sheets for supported sound

@@ -5,7 +5,10 @@ web-install:
 	cd web && npm ci
 
 web-build:
-	cd web && npm run build
+	cd web && npm ci && npm run build
+
+web-check-offline:
+	cd web && npm run check:offline
 
 web-dev:
 	cd web && npm run dev

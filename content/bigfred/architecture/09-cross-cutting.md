@@ -3,7 +3,8 @@
 1. **Single binary serving the frontend too.** In production, build React
    (`vite build` → `web/dist`) and serve the static files from the same
    Go process. In development, Vite runs on `:5173` and proxies `/api`
-   to `:8080`, which avoids CORS conflicts.
+   to `:8080`, which avoids CORS conflicts. The production bundle must be
+   **offline-capable**: no CDN fonts or scripts (§7b).
 2. **WebSocket backpressure.** `dispatch` uses
    `select { case c.send <- ev: default: drop }` so a slow client never
    blocks the others.

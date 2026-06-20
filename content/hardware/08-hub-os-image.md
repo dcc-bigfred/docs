@@ -5,6 +5,10 @@ This chapter specifies the **reference operating system image** for a
 hub OS build plan and targets **deterministic latency**, **read-only root**, and
 **fully automated image builds** — not a general-purpose Raspberry Pi OS desktop.
 
+**Detailed OS documentation** (boot init, `/data` layout, script-by-script
+reference) lives in **[BigFred OS](../os/)** — start with
+[§1 Overview and boot init](../os/01-overview-and-init.md).
+
 For a quicker lab setup you may still use **Raspberry Pi OS (64-bit)** on NVMe
 (§3.2); treat that as development or interim bring-up. Production clubs should
 plan on the image described here.

@@ -1,0 +1,4 @@
+title: BigFred OS
+nav:
+  - Overview: README.md
+  - "1. Overview and boot init": 01-overview-and-init.md

@@ -22,15 +22,17 @@ carries its own `README.md` with its sub-TOC.
 9. [Frontend Components](./08-frontend-components.md)
 10. [Cross-Cutting Concerns](./09-cross-cutting.md)
 11. [Internationalization (i18n)](./09a-i18n.md)
-12. [Authentication, Roles & Authorization](./10-authn-authz/README.md)
-13. [API Keys & Built-in MCP Server](./11-api-keys-and-mcp.md)
-14. [Makefile Additions](./12-makefile.md)
-15. [Delivery Order (Milestones)](./13-delivery-order.md)
-16. [Acceptance Criteria](./14-acceptance-criteria/README.md)
-17. [Process Supervisor (Supervisord)](./15-supervisord/README.md) — non-root
+12. [Offline-first frontend assets](./09b-offline-assets.md) — bundled
+    fonts/CSS/JS, no CDN at runtime, `check-offline-bundle` gate
+13. [Authentication, Roles & Authorization](./10-authn-authz/README.md)
+14. [API Keys & Built-in MCP Server](./11-api-keys-and-mcp.md)
+15. [Makefile Additions](./12-makefile.md)
+16. [Delivery Order (Milestones)](./13-delivery-order.md)
+17. [Acceptance Criteria](./14-acceptance-criteria/README.md)
+18. [Process Supervisor (Supervisord)](./15-supervisord/README.md) — non-root
     process groups, Go templates, hot reload, daemon lifecycle
-18. [DCC Bus Daemon (`dcc-bus`)](./16-dcc-bus/README.md) — per-
+19. [DCC Bus Daemon (`dcc-bus`)](./16-dcc-bus/README.md) — per-
     `(layout × command station)` sibling daemon for the throttle
     data plane; session-aware, security-policy-driven, Redis-cached
-19. [Reliability — reconnect & retry](./17-reliability.md) — WebSocket
+20. [Reliability — reconnect & retry](./17-reliability.md) — WebSocket
     backoff, command retries, DMS grace, mobile screen wake
