@@ -28,10 +28,11 @@ source of truth** for *what* should run.
    **`supervisorctl update`**, which adds/removes/restarts individual
    programs without restarting the daemon. A full supervisord restart
    is used only when global sections (`[supervisord]`, socket, …)
-   change — a rare case with stable XDG paths.
-4. **Non-root only** — no `/etc/supervisor`, no `/var/run`, no
-   privileged ports, no `user=root`. Everything lives under XDG paths
-   owned by the user running `loco server`.
+   change — a rare case with stable hub paths.
+4. **Non-root only** — no `/etc/supervisor`, no system-wide `/var/run`
+   for this instance, no privileged ports, no `user=root`. Config, socket,
+   pidfile and logs live under `/data/…` on the hub RW partition (or the
+   same paths when developing against a mounted `/data` tree).
 5. **Observable** — the service exposes program/group status so higher
    layers (`ScriptService`, WS `system.status`, admin UI) can report
    health without re-implementing process tracking.
@@ -91,19 +92,24 @@ The Go layer keeps **policy** (which programs exist, when config changes)
 and delegates **mechanism** (signal handling, restart timing, log rotation
 basics) to supervisord.
 
-#### Non-root path layout
+#### Path layout (hub)
 
-All paths are derived at service construction time from
-[`github.com/adrg/xdg`](https://github.com/adrg/xdg) (already idiomatic
-for `$XDG_RUNTIME_DIR/loco/exec.sock` in §3a.7):
+All paths are fixed constants in `supervisord.DefaultPaths()` (see
+`pkgs/bigfred/server/supervisord/paths.go`). On the hub image they sit on
+the RW partition mounted at `/data`; `SupervisordService.Start` creates
+missing directories with mode `0700`.
+
+The scripts-executor Unix socket remains at `$XDG_RUNTIME_DIR/loco/exec.sock`
+(§3a.7) — only supervisord's own config, control socket, pidfile and logs
+use the `/data` tree:
 
 | Path | Purpose | Mode |
 |---|---|---|
-| `$XDG_RUNTIME_DIR/loco/supervisord/` | config dir, unix socket, pidfile | `0700` |
-| `$XDG_RUNTIME_DIR/loco/supervisord/supervisord.conf` | rendered config | `0600` |
-| `$XDG_RUNTIME_DIR/loco/supervisord/supervisor.sock` | `[unix_http_server]` socket | `0700` |
-| `$XDG_RUNTIME_DIR/loco/supervisord/supervisord.pid` | supervisord pidfile | `0600` |
-| `$XDG_CACHE_HOME/loco/supervisord/` | supervisord main log + per-program logs | `0700` |
+| `/data/etc/supervisord/` | config dir; `directory=` for managed programs | `0700` |
+| `/data/etc/supervisord/supervisord.conf` | rendered config | `0600` |
+| `/data/run/supervisord.sock` | `[unix_http_server]` socket | `0700` |
+| `/data/run/supervisord.pid` | supervisord pidfile | `0600` |
+| `/data/log/` | supervisord main log + per-program logs | `0700` |
 
 The template also sets `user={{ .RunAsUser }}` in `[supervisord]` so
 programs cannot accidentally inherit a different identity if the config

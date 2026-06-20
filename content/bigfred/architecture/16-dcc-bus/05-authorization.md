@@ -182,7 +182,7 @@ If `loco-server` is down, audit events are lost — same as today (the
 hand-rolled supervisor in §7 #12 had no audit fan-in either). When
 `loco-server` comes back up, it picks up new events but does not
 retroactively backfill missed ones; an operator can read the daemon
-logs (`$XDG_CACHE_HOME/loco/supervisord/dcc-bus-…stdout.log`) for the
+logs (`/data/log/dcc-bus-…stdout.log`) for the
 gap.
 
 #### Why this is acceptable security-wise

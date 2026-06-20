@@ -29,7 +29,7 @@ general-purpose layer that can manage **multiple** sibling processes
 | Concern | Decision |
 |---|---|
 | Runs as | the same Unix user as `loco server` (never root) |
-| Config & runtime paths | XDG Base Directory paths under `$XDG_RUNTIME_DIR/loco/` and `$XDG_CACHE_HOME/loco/` |
+| Config & runtime paths | Hub paths under `/data/etc/supervisord/`, `/data/run/`, `/data/log/` |
 | Config authoring | embedded `text/template` → atomic write to `supervisord.conf` |
 | Apply config changes | regenerate file, then **`supervisorctl reread` + `update`** (built-in hot reload); full daemon restart only when global sections change |
 | Process declaration | `(command, autostart, autorestart)` inside a named **process group**; `command` is wrapped as `/bin/bash -c '…'` |

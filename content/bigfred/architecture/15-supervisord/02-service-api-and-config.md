@@ -67,7 +67,7 @@ type SupervisordConfig struct {
     SupervisordBin  string
     SupervisorctlBin string
 
-    // Paths — default to XDG locations under …/loco/supervisord/
+    // Paths — default to hub locations under /data/etc/supervisord/, /data/run/, /data/log/
     ConfigDir  string
     ConfigPath string
     SocketPath string

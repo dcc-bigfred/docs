@@ -77,7 +77,7 @@ CLI surface (all on `loco-server`):
 | `--redis-bin` | `redis-server` | PATH-relative binary used by the supervised process |
 | `--redis-bind` | `127.0.0.1` | interface the managed daemon binds on |
 | `--redis-port` | `6380` | TCP port the managed daemon listens on |
-| `--redis-data-dir` | supervisord log dir | working dir (mostly empty in ephemeral mode) |
+| `--redis-data-dir` | supervisord config dir | working dir (mostly empty in ephemeral mode) |
 | `--redis-addr` | `<bind>:<port>` | dial address used by loco-server **and dcc-bus** |
 | `--redis-external` | `false` | skip managed daemon, dial external Redis instead |
 | `--redis-persist` | `false` | enable RDB / AOF (rare; off by default) |
@@ -194,9 +194,9 @@ Document in [`02-tech-stack.md`](../02-tech-stack.md):
 
 To be copied into `14-acceptance-criteria/` when the milestone is scheduled:
 
-1. `loco server` as an unprivileged user creates XDG paths, renders config,
+1. `loco server` as an unprivileged user creates `/data` paths, renders config,
    and starts supervisord without root.
-2. `supervisorctl -c $XDG_RUNTIME_DIR/loco/supervisord/supervisord.conf status`
+2. `supervisorctl -c /data/etc/supervisord/supervisord.conf status`
    shows `scripts-executor` in `RUNNING` within 10 s of boot.
 3. Changing desired state via `Apply` (add/remove program, toggle
    autostart) rewrites config and applies via `reread` + `update` **without**

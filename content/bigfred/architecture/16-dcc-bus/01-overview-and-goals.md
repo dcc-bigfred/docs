@@ -90,7 +90,7 @@ risk surfaces and deserve **process isolation**.
   `(layoutId, commandStationId)` is enforced by supervisord's program
   uniqueness (each program name is globally unique, §7d.2).
 - Cross-host federation. The first cut assumes `loco-server` and every
-  `dcc-bus` run on the same host (XDG paths shared, Redis on
+  `dcc-bus` run on the same host (hub `/data` paths shared, Redis on
   loopback). Hosting `dcc-bus` on a Raspberry Pi physically next to
   the LocoNet master is a later milestone — the protocol does not
   preclude it but the orchestration code initially does.
