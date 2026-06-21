@@ -97,7 +97,7 @@ the block-device path changes.
 
 | Path | Purpose |
 |------|---------|
-| `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `configure-ethernet.conf`, …) |
+| `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `configure-ethernet.conf`, …) |
 | `/data/sqlite/` | `loco-server` database (when BigFred is installed) |
 | `/data/redis/` | Redis RDB / working files |
 | `/data/alloy/` | Grafana Alloy state (optional) |
@@ -107,7 +107,9 @@ the block-device path changes.
 
 On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `S10-mount`
 seeds it from the read-only template `/etc/bigfred/bigfred-os-ui.conf`
-(`post-build.sh` installs the template).
+(`post-build.sh` installs the template). The same applies to
+`/data/etc/redis.conf` from `/etc/redis/redis.conf` (RDB `save 60 100`,
+`appendonly no`).
 
 If partition p3 is empty, `S10-mount` may **`mkfs.ext4 -L bigfred-data`**
 before mounting (factory-fresh flash).
@@ -167,7 +169,7 @@ where a long-running daemon is needed.
 | **`S10-mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
 | **`S15-network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
 | **`S20-sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
-| **`S30-redis`** | 5 | `redis-server /etc/redis/redis.conf` — data dir `/data/redis`, pinned to CPUs **0–1** |
+| **`S30-redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/redis`, pinned to CPUs **0–1** |
 | **`S35-victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/opt/victoriametrics` |
 | **`S40-alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
 | **`S42-grafana`** | 8 | Grafana OSS — data under `/data/opt/grafana` |

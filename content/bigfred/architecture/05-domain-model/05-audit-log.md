@@ -128,5 +128,5 @@ t(`events.${entry.msg}`, { actorLogin: entry.actorLogin, ...entry.vars })
 | TTL | 24 h idle, auto-trimmed | Configurable (90 d in original design) |
 | Max entries | ≈ 5 000 | Unlimited |
 | Filtering | Client-side only | SQL WHERE |
-| Persistence after restart | Only if `--redis-persist` is set | Always |
+| Persistence after restart | RDB by default (`save 60 100`; disable with `--redis-no-persist`) | Always |
 | Access control | Any authenticated user | Admin-only (original design) |

@@ -30,7 +30,7 @@ deployment ships one binary.
 | `--station-uri` | string | yes | – | Connection URI passed to `pkgs/loco/commandstation` (e.g. `udp://192.168.0.111:21105`, `serial:///dev/ttyUSB0:57600`). |
 | `--speed-steps` | uint | no | `128` | DCC speed steps (14, 28, or 128). |
 | `--jwt-secret` | string | no | `$BIGFRED_JWT_SECRET` | HMAC secret shared with `loco-server`. Missing secret → fatal startup error. |
-| `--redis-addr` | string | no | `127.0.0.1:6380` | Redis for state cache, roster snapshots, and pub/sub. Boot fails if `PING` does not succeed. |
+| `--redis-addr` | string | no | `127.0.0.1:6379` | Redis for state cache, roster snapshots, and pub/sub. Boot fails if `PING` does not succeed. |
 | `--heartbeat-secs` | float | no | `5` | WS keepalive interval advertised to clients. |
 | `--deadman-secs` | float | no | `6` | Idle window after which the daemon applies emergency stop to the client's subscribed addresses. |
 | `--poll-interval-ms` | uint | no | `0` (→ `750`) | State-feed polling cadence for drivers without push. Ignored when the driver implements `StateObserver` (LocoNet and Z21). See §7e.9. |
@@ -70,7 +70,7 @@ Validation rules applied at boot (before accepting WS clients):
   --station-uri "udp://192.168.0.111:21105" \
   --speed-steps 128 \
   --jwt-secret "$BIGFRED_JWT_SECRET" \
-  --redis-addr 127.0.0.1:6380
+  --redis-addr 127.0.0.1:6379
 ```
 
 The `--jwt-secret` value is rendered inline by `loco-server` from

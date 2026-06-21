@@ -59,11 +59,12 @@ default (group `infra`, program `redis`). Rationale:
   cache. Asking operators to run a sibling daemon by hand reintroduces
   the very class of "is everything running?" foot-gun that supervisord
   exists to eliminate.
-- The bundled instance binds to `127.0.0.1` only, runs with `--save ""`
-  and `--appendonly no` (state is trivially rebuildable from loco-server +
-  re-poll on next boot, so persisting it adds latency for no gain),
-  and listens on **port 6380 by default** to avoid colliding with a
-  pre-existing system Redis on `:6379`.
+- The bundled instance binds to `127.0.0.1` only, persists with **RDB
+  only** (`--appendonly no`, default `save 60 100`) to limit disk
+  writes while keeping Redis state across restarts, and listens on
+  **port 6379 by default** to avoid colliding with a pre-existing
+  system Redis on `:6379`. Pass `--redis-no-persist` or
+  `--redis-rdb-save=""` for ephemeral mode.
 - Operators with their own Redis (e.g. shared between multiple
   BigFred installations, or running on another host) pass
   `--redis-external --redis-addr host:port` to skip the managed
@@ -76,11 +77,12 @@ CLI surface (all on `loco-server`):
 | --- | --- | --- |
 | `--redis-bin` | `redis-server` | PATH-relative binary used by the supervised process |
 | `--redis-bind` | `127.0.0.1` | interface the managed daemon binds on |
-| `--redis-port` | `6380` | TCP port the managed daemon listens on |
-| `--redis-data-dir` | supervisord config dir | working dir (mostly empty in ephemeral mode) |
+| `--redis-port` | `6379` | TCP port the managed daemon listens on |
+| `--redis-data-dir` | supervisord config dir | working dir for `dump.rdb` |
 | `--redis-addr` | `<bind>:<port>` | dial address used by loco-server **and dcc-bus** |
 | `--redis-external` | `false` | skip managed daemon, dial external Redis instead |
-| `--redis-persist` | `false` | enable RDB / AOF (rare; off by default) |
+| `--redis-rdb-save` | `60:100` | RDB snapshot rules (`seconds:changes`, repeatable) |
+| `--redis-no-persist` | `false` | disable RDB snapshots (ephemeral mode) |
 
 #### Default process catalogue (M7 scripts milestone)
 

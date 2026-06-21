@@ -193,7 +193,7 @@ taskset -c 2,3 /usr/bin/dcc-bus …
 Pin auxiliary daemons to 0–1:
 
 ```bash
-taskset -c 0,1 redis-server /etc/redis/redis.conf
+taskset -c 0,1 redis-server /data/etc/redis.conf
 taskset -c 0,1 alloy run /etc/alloy/config.alloy
 ```
 
