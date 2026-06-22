@@ -103,29 +103,36 @@ Unlike RB 23XX (which uses `map.txt`), RB 2112 maps **physical outputs O1–O14*
 
 ### 3.1 Outputs O1–O7 (CV #120–#177)
 
-Each CV configures one function for one direction. Bits **0–7** select outputs **O1–O7** (and F0 forward/reverse on bit 0/1 where applicable).
+Each CV configures one function for one direction. The 8 bits select the **F0_F** and **F0_R** headlight outputs plus outputs **O2–O7**.
+
+Bit layout (matching the manual table header `O7 O6 O5 O4 O3 O2 F0_R F0_F`):
+
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| Output | O7 | O6 | O5 | O4 | O3 | O2 | **F0_R** | **F0_F** |
+| Value | 128 | 64 | 32 | 16 | 8 | 4 | 2 | 1 |
+
+> There is **no “O1”** on this bank — output 1 is split into the two dedicated headlight outputs **F0_F** (bit 0) and **F0_R** (bit 1).
 
 | CV | Function | Default | Active outputs (bits) |
 |----|----------|---------|------------------------|
-| **#120** | F0 forward (FL) | **1** | O1 (bit 0) |
-| **#121** | F0 reverse (FR) | **2** | O2 (bit 1) |
-| **#122** | F1 forward | **4** | O3 |
-| **#123** | F1 reverse | **4** | O3 |
-| **#124** | F2 forward | **8** | O4 |
-| **#125** | F2 reverse | **8** | O4 |
-| **#126** | F3 forward | **16** | O5 |
-| **#127** | F3 reverse | **16** | O5 |
-| **#128** | F4 forward | **32** | O6 |
-| **#129** | F4 reverse | **32** | O6 |
-| **#130** | F5 forward | **64** | O7 |
-| **#131** | F5 reverse | **64** | O7 |
-| **#132** | F6 forward | **128** | — (bit 7) |
-| **#133** | F6 reverse | **128** | — |
-| **#134–#177** | F7–F28 forward/reverse pairs | **0** (most) | Per-bit O1–O7 |
+| **#120** | F0 forward (FL) | **1** | F0_F (bit 0) |
+| **#121** | F0 reverse (FR) | **2** | F0_R (bit 1) |
+| **#122** | F1 forward | **4** | O2 (bit 2) |
+| **#123** | F1 reverse | **4** | O2 |
+| **#124** | F2 forward | **8** | O3 (bit 3) |
+| **#125** | F2 reverse | **8** | O3 |
+| **#126** | F3 forward | **16** | O4 (bit 4) |
+| **#127** | F3 reverse | **16** | O4 |
+| **#128** | F4 forward | **32** | O5 (bit 5) |
+| **#129** | F4 reverse | **32** | O5 |
+| **#130** | F5 forward | **64** | O6 (bit 6) |
+| **#131** | F5 reverse | **64** | O6 |
+| **#132** | F6 forward | **128** | O7 (bit 7) |
+| **#133** | F6 reverse | **128** | O7 |
+| **#134–#177** | F7–F28 forward/reverse pairs | **0** (most) | Per-bit F0_F/F0_R/O2–O7 |
 
 **Factory highlight:** **F15** forward default **252**, F15 reverse **252** — all outputs O2–O7 plus direction bits (wagon interior lighting preset).
-
-Bit layout (outputs O1–O7): bit **0** = F0_F, bit **1** = F0_R, bits **2–7** = O2–O7 (see manual table header: O7…O2, F0_R, F0_F).
 
 ### 3.2 Outputs O8–O14 (CV #190–#247)
 
@@ -376,7 +383,7 @@ Condensed from the manufacturer PDF. Output mapping detail: [§3](#3-output-mapp
 
 | CV range | Maps |
 |----------|------|
-| **#120–#177** | F0–F28 ↔ outputs O1–O7 (forward/reverse pairs) |
+| **#120–#177** | F0–F28 ↔ outputs F0_F, F0_R, O2–O7 (forward/reverse pairs) |
 | **#190–#247** | F0–F28 ↔ outputs O8–O14 (forward/reverse pairs) |
 
 ### RailCom® naming
@@ -393,7 +400,18 @@ Condensed from the manufacturer PDF. Output mapping detail: [§3](#3-output-mapp
 
 | Feature | RB 2112 support in Loco |
 |---------|-------------------------|
-| Detection (CV #7 / #8) | Same manufacturer ID **172** (NMRA) as other RailBOX decoders when read on track |
+| Detection (CV #7 / #8) | Wagon reports **CV #8 = 13** (factory default per manual); locomotive RB 23xx uses NMRA **172** |
 | `loco prog factory-reset` | CV #8 write — value **1** for RailBOX family in Loco CLI |
-| `loco prog brightness` | RB23xx CV mapping (#119–#125, #219–#222) targets locomotive decoders; RB 2112 uses **#41–#48** / **#106–#110** — not yet implemented |
-| Output mapping | CV bit tables (#120+) — not yet implemented; use RailBOX: Railroad Control or direct CV programming |
+| `loco prog mapping set` | CV #120–#177 / #190–#247 bit tables (F0–F28, both directions by default). Outputs: `F0_F`, `F0_R`, `O2`–`O14` (output 1 is split into `F0_F`/`F0_R`, so `O1` is not accepted) |
+
+Mapping examples:
+
+```bash
+# Headlights: front light on F0 forward, rear light on F0 reverse
+loco prog mapping set F0 F0_F --forward
+loco prog mapping set F0 F0_R --reverse
+
+# Map F2 to interior outputs O3 and O5
+loco prog mapping set F2 O3,O5
+```
+| `loco prog brightness` | CV #41–#48 (O1–O8), #106–#110 (O9–O13); output O14 has no max-brightness CV in manual |
