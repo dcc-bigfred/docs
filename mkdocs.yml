@@ -2,7 +2,7 @@ site_name: BigFred
 site_url: https://dcc-bigfred.github.io/docs/
 repo_url: https://github.com/dcc-bigfred/docs
 repo_name: dcc-bigfred/docs
-edit_uri: edit/main/content/
+edit_uri: edit/main/content/en/
 
 docs_dir: content
 exclude_docs: |
@@ -66,6 +66,24 @@ extra_css:
   - assets/expanded-toc.css
 
 plugins:
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: pl
+          name: Polski
+          build: true
+          nav_translations:
+            Home: Strona główna
+            User guide: Przewodnik użytkownika
+            Related: Powiązane
+            Specifications: Specyfikacja
+            Overview: Przegląd
+            Locomotives and trains: Lokomotywy i składy
   - search
   - awesome-pages
   - mermaid2

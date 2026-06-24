@@ -1,0 +1,5 @@
+nav:
+  - Strona główna: index.md
+  - Przewodnik użytkownika: guides/user
+  - Powiązane: related
+  - Specyfikacja: specs

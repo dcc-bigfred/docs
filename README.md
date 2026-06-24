@@ -14,11 +14,14 @@ pip install -r requirements.txt
 mkdocs serve
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (English) or [http://127.0.0.1:8000/pl/](http://127.0.0.1:8000/pl/) (Polish).
 
 ## Contents
 
-| Section | Path |
-|---------|------|
-| Technical specification | `content/specs/` |
-| Related hardware & decoders | `content/related/` |
+| Section | Path (English) |
+|---------|----------------|
+| User guide | `content/en/guides/` |
+| Technical specification | `content/en/specs/` |
+| Related hardware & decoders | `content/en/related/` |
+
+Polish translations live under `content/pl/` (same paths). English is the source of truth; keep `pl/` in sync when editing docs (see `.cursor/skills/docs-i18n/SKILL.md`).
