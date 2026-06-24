@@ -20,6 +20,5 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 | Section | Path |
 |---------|------|
-| Application architecture | `content/bigfred/` |
-| Hub hardware (Pi 5) | `content/hardware/` |
-| DCC decoders | `content/decoders/` |
+| Technical specification | `content/specs/` |
+| Related hardware & decoders | `content/related/` |

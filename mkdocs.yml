@@ -1,36 +1,69 @@
-site_name: BigFred Documentation
+site_name: BigFred
 site_url: https://dcc-bigfred.github.io/docs/
 repo_url: https://github.com/dcc-bigfred/docs
 repo_name: dcc-bigfred/docs
-edit_uri: edit/main/
+edit_uri: edit/main/content/
 
 docs_dir: content
 exclude_docs: |
-  README.md
   LICENSE
 
 theme:
-  name: material
-  language: en
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.sections
-    - navigation.expand
-    - search.suggest
-    - content.code.copy
-    - content.action.edit
-  palette:
-    - scheme: default
-      primary: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - scheme: slate
-      primary: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+  name: landing
+  custom_dir: overrides
+
+  favicon: assets/avatar.svg
+  avatar: assets/avatar.svg
+  tagline: |
+    Modern, multi-user DCC driver supporting LocoNet and Z21
+  footer: |
+    Compiled from markdown using [MkDocs](https://www.mkdocs.org/). Theme is
+    [Landing](https://teparsons.github.io/mkdocs-landing/) by
+    [Todd Parsons](https://toddparsons.co.uk).
+  page_source:
+    link: https://github.com/dcc-bigfred/docs
+    icon: [brands, github]
+  socials:
+    - label: GitHub
+      link: https://github.com/dcc-bigfred
+      icon: [brands, github]
+
+  header_layout:
+    - title
+    - tagline
+  share_btn: false
+  content_box_opacity: 0
+  avatar_size: 8rem
+  round_avatar: true
+  background_gradient_colors:
+    - color-mix(in srgb, var(--crust) 100%, transparent)
+    - color-mix(in srgb, var(--base) 80%, transparent)
+
+  primary_color: "#dd7878"
+  secondary_color: "#7287fd"
+  tertiary_color: "#dd7878"
+  base_color: "#24273a"
+  mantle_color: "#1e2030"
+  crust_color: "#181926"
+  overlay_color: "#9B9B9E"
+  text_color: "#c6d0f5"
+  hltext_color: "#24273a"
+
+  primary_color_dark: "#dd7878"
+  secondary_color_dark: "#7287fd"
+  tertiary_color_dark: "#dd7878"
+  base_color_dark: "#24273a"
+  mantle_color_dark: "#1e2030"
+  crust_color_dark: "#181926"
+  overlay_color_dark: "#9B9B9E"
+  text_color_dark: "#c6d0f5"
+  hltext_color_dark: "#24273a"
+
+  body_font: Maven Pro
+  heading_font: Oswald
+
+extra_css:
+  - assets/expanded-toc.css
 
 plugins:
   - search
@@ -40,9 +73,9 @@ plugins:
 markdown_extensions:
   - tables
   - admonition
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.inlinehilite
-  - toc:
-      permalink: true
+  - toc

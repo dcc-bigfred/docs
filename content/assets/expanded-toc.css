@@ -1,0 +1,125 @@
+/* Landing theme: keep page TOC sub-headings visible (default: hover only). */
+nav.vertical .nav-item ul {
+    transform: scaleY(1);
+    height: auto;
+}
+
+/* Tables — BigFred throttle cockpit palette (throttleCockpitTheme.ts). */
+table {
+    border: 1px solid rgba(120, 160, 210, 0.35);
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: rgba(15, 30, 51, 0.35);
+}
+
+thead {
+    background: linear-gradient(145deg, #3d6a9e 0%, #1e3d66 100%);
+    color: #e8f0fc;
+}
+
+thead:before,
+thead:after {
+    background: linear-gradient(145deg, #3d6a9e 0%, #1e3d66 100%);
+}
+
+th {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+tbody tr {
+    border-bottom: 1px solid rgba(120, 160, 210, 0.25);
+}
+
+tbody tr:nth-child(even) {
+    background-color: rgba(21, 42, 69, 0.55);
+}
+
+tbody tr:hover {
+    background-color: rgba(42, 80, 128, 0.35);
+}
+
+td code,
+th code {
+    color: #e8f0fc;
+}
+
+/* Screenshot gallery — clickable thumbnails with lightbox (homepage). */
+.screenshot-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0 2rem;
+}
+
+.screenshot-item {
+    min-width: 0;
+}
+
+.screenshot-lb-toggle {
+    display: none;
+}
+
+.screenshot-thumb {
+    display: block;
+    border: 1px solid rgba(120, 160, 210, 0.35);
+    border-radius: 8px;
+    overflow: hidden;
+    background: linear-gradient(145deg, #152a45 0%, #0f1e33 100%);
+    cursor: zoom-in;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.screenshot-thumb:hover {
+    border-color: rgba(180, 210, 255, 0.5);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.screenshot-thumb img {
+    display: block;
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    object-position: top center;
+}
+
+.screenshot-thumb span {
+    display: block;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    text-align: center;
+    color: #e8f0fc;
+}
+
+.screenshot-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.screenshot-lb-toggle:checked ~ .screenshot-lightbox {
+    display: flex;
+}
+
+.screenshot-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 24, 41, 0.92);
+    cursor: zoom-out;
+}
+
+.screenshot-lightbox img {
+    position: relative;
+    z-index: 1;
+    max-width: min(100%, 960px);
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(120, 160, 210, 0.35);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}

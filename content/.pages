@@ -1,6 +1,5 @@
 nav:
   - Home: index.md
-  - BigFred: bigfred
-  - BigFred OS: os
-  - Hardware: hardware
-  - Decoders: decoders
+  - User guide: guides/user
+  - Related: related
+  - Specifications: specs
