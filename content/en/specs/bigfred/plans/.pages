@@ -3,3 +3,4 @@ nav:
   - M5 – Interlocking, radio & takeover: m5-interlocking-radio-takeover.md
   - M5.1 – Train announcements panel: train-announcements-panel.md
   - Train control throttle: train-control-throttle.md
+  - Z21 server in dcc-bus: z21-server-dcc-bus.md

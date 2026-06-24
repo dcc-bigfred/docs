@@ -1,0 +1,21 @@
+{% set current = i18n_current_language | default('en') %}
+{% set names = config.extra.get('languages', {'en': 'English', 'pl': 'Polski'}) %}
+{% if page and page.file is defined and page.file.alternates and page.file.alternates | length > 1 %}
+<details id="lang-switcher" class="lang-switcher">
+  <summary title="Language / Język" aria-label="Language / Język">
+    <i class="fa fa-globe" aria-hidden="true"></i>
+  </summary>
+  <ul class="lang-switcher-menu">
+    {% for locale, alt_file in page.file.alternates.items() | sort %}
+    <li>
+      <a href="{{ alt_file.url | url }}"
+         hreflang="{{ locale }}"
+         lang="{{ locale }}"
+         class="{% if locale == current %}is-current{% endif %}">
+        {{ names.get(locale, locale) }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}

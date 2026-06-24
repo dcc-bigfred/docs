@@ -62,6 +62,11 @@ theme:
   body_font: Maven Pro
   heading_font: Oswald
 
+extra:
+  languages:
+    en: English
+    pl: Polski
+
 extra_css:
   - assets/expanded-toc.css
 
