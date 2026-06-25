@@ -6,11 +6,13 @@ the same command path as the browser WebSocket throttle. The server reuses
 `cmd.Router` handlers (`HandleSetSpeed`, `HandleSetFunction`, `HandleSubscribe`,
 …). It does **not** implement the WebSocket dead-man switch or ping keepalive.
 
-**Pairing model.** Authorization is established when a handset sends a
-**Programming-on-the-Main (POM) byte write to CV1000** with a value equal to a
-short-lived code generated in the BigFred UI. The **source UDP endpoint**
-(`IP + source port`) of that packet is stored in Redis as the paired Z21 session.
-No web-UI “confirm pending connection” step is required.
+**Pairing model.** Authorization is established when a handset sends
+**Programming-on-the-Main (POM) byte writes to CV3 and CV4** with two simple
+numeric values shown in the BigFred UI (e.g. **CV3 = 122**, **CV4 = 145**). The
+**source UDP endpoint** (`IP + source port`) of those packets is stored in Redis
+as the paired Z21 session. Both CV writes are required (any order); writes are
+intercepted and never forwarded to the track. The user never computes hashes or
+bit patterns — they copy the two numbers from `/remotes/z21` into the Z21 app.
 
 Related specifications:
 
@@ -54,15 +56,17 @@ instance per `dcc-bus` process.
    when spawning the process. Optional advanced fields (`z21_bind`, `z21_port`)
    can live on the same form later; MVP uses daemon defaults (`0.0.0.0:21105`).
 2. **No dead-man / no session estop for Z21.** Z21 clients never run
-   `watchDeadman`. Timeouts only drop pairing state — **without** calling
-   `HandleSessionClose` or layout estop (see decision §11 for the 60-minute
-   movement rule).
-3. **Pairing via CV1000 POM write.** A handset must write **CV1000** (wire
-   address **999**, 0-based per Z21 spec) to the generated code. The write is
-   **intercepted** and **never** forwarded to the track.
+   `watchDeadman`. Session end (§1.1 idle or `LAN_LOGOFF`) drops pairing — **without**
+   calling `HandleSessionClose` or layout estop.
+3. **Pairing via CV3 + CV4 POM writes.** The handset must write **CV3** and
+   **CV4** (wire addresses **2** and **3**, 0-based per Z21 spec) with the two
+   byte values shown in `/remotes/z21` for the generated code. Both writes are
+   **intercepted** and **never** forwarded to the track. Order does not matter;
+   pairing completes when both values were received from the same `clientKey`
+   within the pairing window. Loco address inside the POM packets is
+   **ignored** for pairing.
 4. **Session identity = UDP source endpoint.** `clientKey = "<ip>:<port>"` (source
-   port of the datagram that carried the pairing write). Loco address inside the
-   POM packet is **ignored** for pairing.
+   port of the datagram(s) that completed pairing).
 5. **Scoped vehicle list (fixed or dynamic).** The `/remotes/z21` page lets the
    user choose which layout vehicles the handset may control, **or** enable
    **“all vehicles I can drive”** (`allowAllVehicles: true`). In fixed mode only
@@ -72,33 +76,57 @@ instance per `dcc-bus` process.
    membership. Vehicle scope can be changed while paired without re-pairing.
 6. **Pairing code TTL = 5 minutes**, single use. Stored in Redis; deleted on
    successful pair.
-7. **Pairing code is one byte (1–255).** `LAN_X_CV_POM_WRITE_BYTE` carries a
-   single CV value. The UI displays the numeric code clearly (not a multi-digit
-   string that does not fit in a byte). Multi-byte codes via CV1000+CV1001 are
-   explicitly out of scope for MVP.
-8. **Handshake for everyone.** Unpaired clients still receive
+7. **Pairing values — simple decimal CV entries.** Each of CV3 and CV4 is a
+   **single integer 111–255** entered in the Z21 app. Valid values follow a fixed
+   **three-digit pattern** (digits are decimal positions, not three separate CV
+   writes):
+
+   ```text
+   [1–2][1–5][1–5]   →   e.g. 122, 155, 215, 255
+    ^   ^   ^
+    │   │   └─ ones digit:  1–5
+    │   └───── tens digit:  1–5
+    └───────── hundreds:   1–2
+   ```
+
+   Examples: **CV3 = 122**, **CV4 = 145**. Invalid: `099`, `160`, `312` (fails the
+   pattern). **50** valid values per CV → **2 500** possible pairs. The UI shows
+   only the two numbers to type; optional shorthand label `122-145` for display.
+8. **Pairing generation.** Server picks random valid `pairingCV3` and `pairingCV4`
+   independently, stores them on the pending `req`, and rejects duplicate
+   `(pairingCV3, pairingCV4)` pairs among concurrent reqs on the same command
+   station (retry generation). **No hashing** — handset values match Redis
+   literally.
+9. **Handshake for everyone.** Unpaired clients still receive
    `LAN_GET_SERIAL_NUMBER`, `LAN_GET_HWINFO`, `LAN_SYSTEMSTATE_GETDATA`, etc., so
    stock Z21 apps can connect and reach the CV programming UI.
-9. **Unpaired drive rejected.** `LAN_X_SET_LOCO_DRIVE`, function commands, and
+10. **Unpaired drive rejected.** `LAN_X_SET_LOCO_DRIVE`, function commands, and
    non-pairing CV writes are dropped until the endpoint is paired.
-10. **Dedicated remotes UI.** All handset pairing management lives on
+11. **Dedicated remotes UI.** All handset pairing management lives on
     **`/remotes/z21`** (status, pair, unpair, vehicle scope). Not embedded in the
     throttle overlay.
-11. **Inactivity unpair (1 hour).** If a paired handset sends **no drive
-    movement** for **60 minutes**, the session is **automatically unpaired**
-    (`DEL active` in Redis, drop local registry). **Movement** means
-    `LAN_X_SET_LOCO_DRIVE` (speed/direction change). Handshake, subscribe,
-    function-only, and ping-like traffic do **not** reset this timer. Unpair
-    does **not** trigger dead-man or layout estop. This is independent of the
-    Z21 protocol **1-minute** UDP participant timeout (§1.1), which only affects
-    whether the central still lists the client for broadcasts — not the 60-minute
-    pairing policy.
+12. **Session lifetime = Z21 §1.1 + `LAN_LOGOFF`.** The virtual Z21 server
+    follows [`../protos/z21.md`](../protos/z21.md) §1.1 and §2.2 — **no separate
+    BigFred idle timer**:
+    - **Implicit login:** the client’s first UDP packet registers it on the
+      active-participant list (e.g. `LAN_SYSTEMSTATE_GETDATA`).
+    - **Keepalive:** **any** inbound packet refreshes `LastSeen`; the client must
+      send at least one packet per minute (stock Z21 apps usually do).
+    - **> 60 s without any UDP:** remove from the active-participant list **and**
+      **full unpair** (`DEL active` in Redis). Session and pairing end together.
+      No estop.
+    - **`LAN_LOGOFF` (header `0x30`):** same as idle timeout — remove from
+      participants, **full unpair**, **no reply**. Preferred disconnect path (spec:
+      *“If possible, the client should log off using LAN_LOGOFF”*).
+    - **After timeout or logoff:** the handset is unpaired; the next connection
+      requires CV3/CV4 pairing again (new code from `/remotes/z21`).
 
 ### Deliberate non-goals (MVP)
 
 - Turnouts, programming-track CV, LocoNet tunneling, CAN, fast clock
 - Custom Z21 headers for BigFred-specific pairing feedback
 - Train consists (`train.setSpeed`) from the handset
+- Pushing an **allowed locomotive list** to stock Z21 apps (protocol has no such message; see plan § Deliberate non-goals)
 - Discovering / listing locos from live Z21 bus state in the UI
 
 ---
@@ -115,13 +143,14 @@ sequenceDiagram
     participant CS as commandstation.Station
 
     UI->>API: POST z21-remote/pairing (vehicles or allowAll)
-    API->>Redis: SET z21pair:req:{code} TTL=5m
-    API-->>UI: code + CV1000 instructions (/remotes/z21)
+    API->>Redis: SET z21pair:req:{layoutId}:{csId}:{cv3}:{cv4} TTL=5m
+    API-->>UI: pairingCV3 + pairingCV4 (e.g. 122, 145)
 
     Pilot->>Z21: UDP connect (implicit Z21 login)
-    Pilot->>Z21: LAN_X_CV_POM_WRITE_BYTE CV1000=value=code
+    Pilot->>Z21: LAN_X_CV_POM_WRITE_BYTE CV3=value1
+    Pilot->>Z21: LAN_X_CV_POM_WRITE_BYTE CV4=value2
     Z21->>Redis: match req, SET active, DEL req
-    Note over Z21: CV1000 write not forwarded to track
+    Note over Z21: CV3/CV4 writes not forwarded to track
 
     Pilot->>Z21: LAN_X_SET_LOCO_DRIVE (allowed loco)
     Z21->>CS: cmd.Router.HandleSetSpeed
@@ -133,22 +162,83 @@ sequenceDiagram
    Station settings** (admin catalogue). Wait for `dcc-bus` to restart.
 2. Open **`/remotes/z21`**, pick layout + command station (only stations with
    Z21 server enabled).
-3. **If not paired:** choose vehicles (or “all I can drive”), generate a code,
-   follow CV1000 instructions in the Z21 app.
-4. **If paired:** review status (`IP:port`, last drive time, allowed vehicles);
-   adjust vehicle scope or unpair.
+3. **If not paired:** choose vehicles (or “all I can drive”), tap **Generate** —
+   BigFred shows **CV3 = …** and **CV4 = …** (e.g. `122` and `145`). Enter those
+   two values in the Z21 app (POM on any loco).
+4. **If paired:** review status (`IP:port`, `pairedAt`, `lastSeen`, allowed
+   vehicles); adjust vehicle scope or unpair.
 5. In the Z21 app, set the command station IP to the `dcc-bus` host (port
    `21105` unless configured otherwise).
-6. Program **CV1000** on any loco to the displayed value (POM / programming on
-   the main) — step 6 only when pairing.
-7. The page shows **paired** / **not paired** live (poll or WS); after **1 hour
-   without drive movement** status returns to not paired automatically.
+6. Program **CV3** and **CV4** to the exact numbers shown (e.g. **122** and
+   **145**) — step 6 only when pairing.
+7. The page shows **paired** / **not paired** live (poll or WS). If the handset
+   sends no UDP for **> 60 seconds** (Z21 §1.1), it is unpaired automatically;
+   user must pair again with a new code.
 
-### CV1000 addressing note
+### CV3 / CV4 addressing and value pattern
 
 Per [`../protos/z21.md`](../protos/z21.md) §6.6, the POM CV address field is
-0-based (`0` = CV1). **CV1000 → wire address 999.** Documentation and UI copy
-say “CV1000”; implementation uses address `999`.
+0-based (`0` = CV1):
+
+| Display (UI / Z21 app) | Wire address | Example |
+|------------------------|--------------|---------|
+| **CV3** | **2** | `122` |
+| **CV4** | **3** | `145` |
+
+Documentation and UI copy use “CV3” / “CV4”; implementation uses wire addresses
+`2` and `3`. Each value is one integer **111–255** that satisfies
+`[1–2][1–5][1–5]` (see decision §7).
+
+**Validation (reference implementation):**
+
+```go
+func validPairingCV(v int) bool {
+    if v < 111 || v > 255 {
+        return false
+    }
+    d1, d2, d3 := v/100, (v/10)%10, v%10
+    return d1 >= 1 && d1 <= 2 && d2 >= 1 && d2 <= 5 && d3 >= 1 && d3 <= 5
+}
+```
+
+**Why CV3/CV4:** the Z21 app exposes one number per CV (1–255). Two fields give
+**2 500** distinct pairs — enough for club use — while staying easy to read and
+type (`122`, `145`). Pairing writes are **never forwarded** to the track.
+
+**Pairing buffer (per `clientKey`):** while a pairing `req` is pending, buffer
+the received value for CV3 and CV4. When both are present, look up the `req` with
+matching `(pairingCV3, pairingCV4)` for this layout/command station and complete
+pairing. Clear buffer on success, TTL expiry, or §1.1 idle.
+
+### Z21 participant lifecycle (§1.1 + `LAN_LOGOFF`)
+
+Per [`../protos/z21.md`](../protos/z21.md):
+
+| Event | Active participant (local) | BigFred pairing (Redis) |
+|-------|---------------------------|-------------------------|
+| First UDP packet | Add / refresh; implicit login | Unchanged until CV3/CV4 pair |
+| Any UDP packet while paired | Refresh `LastSeen`; refresh `lastSeenAt` in Redis | Session stays paired |
+| **> 60 s** no UDP | Remove from participant list; clear subs/broadcasts | **`DEL active`** (full unpair) |
+| **`LAN_LOGOFF`** | Remove from participant list | **`DEL active`** (full unpair) |
+| After timeout / logoff | Next UDP = implicit login, **unpaired** | Re-pair via CV3/CV4 required |
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unpaired: first UDP packet
+    Unpaired --> Paired: CV3 + CV4 values match pending req
+    Paired --> Paired: any UDP within 60s
+    Paired --> Unpaired: no UDP 60s (§1.1)
+    Paired --> Unpaired: LAN_LOGOFF
+    Unpaired --> [*]
+```
+
+**Implementation notes:**
+
+- Sweeper tick for §1.1: e.g. every **15 s**, evict clients where
+  `now - LastSeen > 60s` → local eviction **and** `Unpair` in Redis.
+- `LAN_LOGOFF` request: `DataLen=0x04`, header `0x30 0x00`, no data, no response.
+- User guide: stock Z21 apps keep sending traffic while open; closing the app
+  should trigger `LAN_LOGOFF`. Abrupt Wi-Fi loss unpairs after 60 s idle per §1.1.
 
 ### Security properties
 
@@ -156,10 +246,10 @@ say “CV1000”; implementation uses address `999`.
 |----------|-----------|
 | Short window | Redis TTL 5 min on `req` keys |
 | Single use | `DEL req` after successful pair |
-| Session lifetime | Auto-unpair after **60 min** without `LAN_X_SET_LOCO_DRIVE` |
-| No decoder damage | CV1000 pairing writes never reach `Station` |
+| Session lifetime | End after **60 s** without any UDP (Z21 §1.1) or on `LAN_LOGOFF` |
+| No decoder damage | CV3/CV4 pairing writes never reach `Station` |
 | LAN trust model | Anyone who knows the code within TTL can pair from any IP; acceptable for club LAN; CIDR allow-list is a future option |
-| Brute force | 8-bit space; mitigate with rate limiting on pairing handler (optional v2) |
+| Brute force | 2 500 pairs; 5 min TTL; optional rate limit on pairing (v2) |
 
 ---
 
@@ -172,8 +262,8 @@ convention).
 
 | Key | TTL | Payload |
 |-----|-----|---------|
-| `bigfred:z21pair:req:{code}` | **5 min** | `{layoutId, commandStationId, userId, vehicleIds[], addrs[], allowAllVehicles, createdAt}` — `{code}` is the decimal string (`"42"`) |
-| `bigfred:z21pair:active:{layoutId}:{csId}:{clientKey}` | None; `lastDriveAt` drives 60-min policy | `{userId, vehicleIds[], allowedAddrs[], allowAllVehicles, pairedAt, pairedViaCode, lastDriveAt, clientKey}` |
+| `bigfred:z21pair:req:{layoutId}:{csId}:{cv3}:{cv4}` | **5 min** | `{layoutId, commandStationId, userId, pairingCV3, pairingCV4, displayLabel, vehicleIds[], addrs[], allowAllVehicles, createdAt}` — key uses the CV pair for O(1) lookup; `displayLabel` e.g. `"122-145"` for UI only |
+| `bigfred:z21pair:active:{layoutId}:{csId}:{clientKey}` | None; evicted on §1.1 idle | `{userId, vehicleIds[], allowedAddrs[], allowAllVehicles, pairedAt, pairingCV3, pairingCV4, lastSeenAt, clientKey}` |
 | `bigfred:z21pair:byuser:{layoutId}:{csId}:{userId}` | None | SET of `clientKey` values for listing / revoke |
 
 `clientKey` = `"<ip>:<port>"` using the **source** address of the UDP datagram.
@@ -183,19 +273,18 @@ only; `z21server` resolves permitted addresses at command time from the live
 roster cache (`RosterCache`) filtered by `userId ∈ ControllerUserIDs`. When
 `false`, only `allowedAddrs` (or `vehicleIds` resolved to addresses) apply.
 
-**`lastDriveAt`:** unix ms UTC; updated in Redis on each successful
-`LAN_X_SET_LOCO_DRIVE` handled for a paired client. A background sweeper in
-`z21server` (e.g. every 5 min) unpairs sessions where
-`now - lastDriveAt > 60 minutes`.
+**`lastSeenAt`:** unix ms UTC; updated in Redis on **any** inbound UDP packet
+while the client is paired. Used for `/remotes/z21` status display. Session ends
+when `now - lastSeenAt > 60s` (sweeper) or on `LAN_LOGOFF`.
 
 ### Atomic pairing (Lua recommended)
 
-`PairViaCV1000(code, clientKey, meta)`:
+`PairViaCV3CV4(pairingCV3, pairingCV4, clientKey, meta)`:
 
-1. `GET bigfred:z21pair:req:{code}` — miss or expired → fail
+1. `GET bigfred:z21pair:req:{layoutId}:{csId}:{cv3}:{cv4}` — miss or expired → fail
 2. `SET` `active` for `clientKey` copying `allowAllVehicles`, `addrs`, `userId`;
-   set `lastDriveAt = now`
-3. `DEL bigfred:z21pair:req:{code}`
+   set `lastSeenAt = now`
+3. `DEL` the matched `req` key (and any secondary index)
 4. `SADD byuser:…`
 
 **Removed from earlier drafts:** `z21pair:pending:*`, `POST …/confirm`, pending
@@ -237,8 +326,8 @@ Base path scoped by layout + command station. Used by `/remotes/z21`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/layouts/{lid}/command-stations/{csid}/z21-remote` | **Status** for the current user: `{paired, clientKey?, pairedAt?, lastDriveAt?, allowAllVehicles, allowedVehicles[], pendingCode?}`. `pendingCode` present only while a `req` exists for this user. |
-| `POST` | `…/z21-remote/pairing` | Start pairing. Body: `{vehicleIds?: string[], allowAllVehicles?: boolean}` (mutually exclusive modes). Requires `z21ServerEnabled`. Returns `{code, expiresAt, instructions}`. |
+| `GET` | `/api/v1/layouts/{lid}/command-stations/{csid}/z21-remote` | **Status** for the current user: `{paired, clientKey?, pairedAt?, lastSeenAt?, allowAllVehicles, allowedVehicles[], pendingPairing?}`. `pendingPairing` = `{pairingCV3, pairingCV4, displayLabel, expiresAt}` while a `req` exists for this user. |
+| `POST` | `…/z21-remote/pairing` | Start pairing. Body: `{vehicleIds?: string[], allowAllVehicles?: boolean}`. Requires `z21ServerEnabled`. Generates random valid `pairingCV3`/`pairingCV4`. Returns `{pairingCV3, pairingCV4, displayLabel, expiresAt, instructions}`. |
 | `PATCH` | `…/z21-remote/session` | Update paired session scope: `{vehicleIds?, allowAllVehicles?}` without re-pairing. |
 | `DELETE` | `…/z21-remote/session` | **Unpair** active session for the current user (optional `?clientKey=` if multiple). |
 
@@ -259,7 +348,7 @@ dcc-bus/
   z21server/
     server.go           # net.ListenUDP, read loop
     client_registry.go  # map[clientKey]*Client
-    pairing.go          # Redis + local cache; TryPair, Session, TouchDrive, Unpair, Sweeper
+    pairing.go          # Redis + local cache; TryPairCV3CV4, Session, TouchSeen, Unpair, Sweeper
     dispatch.go         # splitZ21Datagram → handler chain
     adapter.go          # LAN_X_* → cmd.Router
     responder.go        # cmd.Responder → UDP Z21 replies
@@ -283,19 +372,22 @@ if cfg.EnableZ21 {
 
 ### Per-packet dispatch order
 
-1. If `LAN_X_CV_POM_WRITE_BYTE` and CV address == **999** (CV1000):
-   - `pairing.TryPair(clientKey, cvValue)` → on success or failure, **return**
-     (never forward).
-2. If client not paired:
-   - Allow Z21 **handshake** commands (serial, hwinfo, system state, logoff).
+1. Refresh `LastSeen` on every datagram; if paired, `TouchSeen(clientKey)` in Redis.
+2. If `LAN_LOGOFF` (header `0x30`): remove from participant list, `Unpair`
+   in Redis, **return** (no reply).
+3. If `LAN_X_CV_POM_WRITE_BYTE` and CV wire address is **2** (CV3) or **3** (CV4):
+   - Buffer value; when both CV3 and CV4 received, `pairing.TryPairCV3CV4(...)`
+   - **Return** without forwarding (success or incomplete buffer).
+4. If client not on participant list: register (implicit login).
+5. If client not paired (no Redis `active` for `clientKey`):
+   - Allow Z21 **handshake** commands (serial, hwinfo, system state).
    - Reject drive, function, turnout, and other CV commands.
-3. If paired:
+6. If paired:
    - Map packet → `cmd.Router` via adapter with `Z21Actor` + `Z21Responder`.
    - Enforce allowed addresses (`allowAllVehicles` or fixed list) **and**
      `DrivePolicy` roster check.
-   - On successful `LAN_X_SET_LOCO_DRIVE`, call `pairing.TouchDrive(clientKey)`.
-4. Background **inactivity sweeper** (every ~5 min): unpair sessions with
-   `lastDriveAt` older than 60 minutes.
+7. Background **§1.1 sweeper** (~15 s tick): evict clients with `LastSeen` older
+   than 60 s → local eviction **and** `Unpair` in Redis.
 
 ### Client registry
 
@@ -303,21 +395,19 @@ if cfg.EnableZ21 {
 type Client struct {
     Addr            net.UDPAddr
     Key             string // "ip:port"
-    Paired          *PairedSession
-    LastSeen        time.Time // any UDP packet (Z21 §1.1)
-    LastDriveAt     time.Time // LAN_X_SET_LOCO_DRIVE only
+    Paired          *PairedSession // mirror of Redis when on participant list
+    LastSeen        time.Time      // any UDP packet — Z21 §1.1 keepalive
     BroadcastFlags  uint32
     SubscribedLocos []uint16 // max 16 FIFO per Z21 spec
 }
 ```
 
-- **No UDP for > 1 minute** (Z21 §1.1): remove from **local** registry only; Redis
-  `active` may remain so the same user can resume within the 60-minute drive
-  window after reconnecting (new `clientKey` if source port changed → treat as
-  unpaired until CV1000 re-pair **or** optional IP-only rebind — MVP: require
-  re-pair if `clientKey` changes).
-- **`lastDriveAt` > 60 minutes:** `Unpair` — `DEL active` in Redis; **no** estop.
-- `LAN_LOGOFF`: explicit unpair locally and in Redis; **no** `HandleSessionClose`.
+See [Z21 participant lifecycle](#z21-participant-lifecycle-11--lan_logoff) for the
+full timeout matrix. Summary:
+
+- **`LastSeen` > 60 s:** evict from participant map **and** `Unpair` in Redis; **no** estop.
+- **`LAN_LOGOFF`:** same as idle timeout; **no** reply; **no** `HandleSessionClose`.
+- **New `clientKey`** (e.g. ephemeral port changed): require CV3/CV4 pair again.
 
 ---
 
@@ -332,6 +422,7 @@ type Client struct {
 | `LAN_SET_BROADCASTFLAGS` | Local on `Client` | Not routed |
 | `LAN_SYSTEMSTATE_GETDATA` | Synthetic reply | Track on, no programming mode |
 | `LAN_GET_SERIAL_NUMBER` / `LAN_GET_HWINFO` | Static “BigFred virtual Z21” | Required for stock apps |
+| `LAN_LOGOFF` | Remove participant + unpair | **No reply** (§2.2) |
 
 ### Z21Actor and Z21Responder
 
@@ -400,10 +491,11 @@ the app router and linked from the main nav (e.g. “Remotes” / “Z21 handset
 
 | Section | Not paired | Paired |
 |---------|------------|--------|
-| **Status** | “Not paired”; link to enable CS if needed | `clientKey` (`IP:port`), `pairedAt`, `lastDriveAt`, countdown / hint for 60-min inactivity unpair |
+| **Status** | “Not paired”; link to enable CS if needed | `clientKey` (`IP:port`), `pairedAt`, `lastSeenAt`, hint: keepalive ≥1 packet/min (§1.1) |
+| **Pending pair** | **CV3 = …** / **CV4 = …** (large type) + expiry countdown | — |
 | **Layout / CS picker** | Required | Same (switching CS shows that CS's status) |
 | **Vehicle scope** | Multi-select roster vehicles **or** toggle **“All vehicles I can drive”** (`allowAllVehicles`) | Same controls; `PATCH …/z21-remote/session` on save |
-| **Pair** | “Generate code” → numeric code + 5-min TTL + CV1000 steps | Hidden or “Re-pair” (unpair first) |
+| **Pair** | “Generate” → e.g. **CV3 = 122**, **CV4 = 145** + 5-min TTL | Hidden or “Re-pair” (unpair first) |
 | **Unpair** | — | “Disconnect handset” → `DELETE …/z21-remote/session` |
 
 **Data:** `GET …/z21-remote` on load and after mutations; optional WS event
@@ -422,7 +514,7 @@ Extend the admin **Command Stations** create/edit dialog
 - Add a **“Z21 handset server”** toggle (`Switch` or `Checkbox`) bound to
   `z21ServerEnabled`.
 - Helper text: physical Z21 apps connect to the `dcc-bus` host on UDP port
-  `21105`; pairing uses CV1000 (link to user guide).
+  `21105`; pairing uses CV3/CV4 (link to user guide).
 - Show the toggle on **create** and **edit**; persist via existing
   `useCreateCommandStation` / `useUpdateCommandStation`.
 - i18n keys under `commandStation` locale files (`en`, `pl`, `de`).
@@ -446,8 +538,9 @@ after the daemon restarts.
 5. **Deployment** — UDP `21105` on the `dcc-bus` host. The outbound Z21 client
    (`udp://real-z21:21105`) must use a **different host IP** than the inbound
    listener on the same machine (port conflict).
-6. **Docs (user guide)** — `/remotes/z21` walkthrough; CV1000 pairing; 60-minute
-   inactivity unpair; enabling the server under Command Station settings.
+6. **Docs (user guide)** — `/remotes/z21` walkthrough; CV3/CV4 pairing; **§1.1**
+   (≥1 UDP packet per minute while connected); **`LAN_LOGOFF`** on app exit;
+   enabling the server under Command Station settings.
 7. **Metrics (optional)** — `z21_clients_active`, `z21_packets_rx`, `z21_pair_success`,
    `z21_pair_reject`.
 
@@ -457,10 +550,11 @@ after the daemon restarts.
 
 | Layer | Cases |
 |-------|-------|
-| Unit | POM decode CV1000 → `TryPair`; policy rejects non-allowed addr; `allowAllVehicles` resolves from roster |
-| Integration | UDP harness: pairing packet creates Redis `active`; drive calls mock `Station.SetSpeed`; `TouchDrive` updates `lastDriveAt` |
-| Pairing | TTL expiry; wrong code; single-use code; two endpoints same code (only first succeeds) |
-| Inactivity | No `LAN_X_SET_LOCO_DRIVE` for 60 min → unpaired; function-only traffic does not extend session |
+| Unit | `validPairingCV`; POM CV3/CV4 → `TryPairCV3CV4`; policy rejects non-allowed addr |
+| Integration | UDP harness: CV3=122 + CV4=145 → Redis `active`; invalid values rejected |
+| Pairing | TTL expiry; wrong CV values; order independence; duplicate pair rejection |
+| §1.1 idle | No UDP for 60 s → participant evicted + Redis unpair; any UDP before timeout keeps session |
+| LAN_LOGOFF | Full unpair, no reply, no estop |
 | Regression | WebSocket throttle + UDP client on same loco via shared `Router` |
 | Restart | `dcc-bus` reloads `active` sessions from Redis; sweeper continues |
 | UI | `/remotes/z21` paired / not paired states; vehicle scope PATCH |
@@ -472,7 +566,7 @@ after the daemon restarts.
 ```mermaid
 flowchart TD
     A[PR1: contract + Redis pair/active] --> B[PR2: z21server UDP + handshake]
-    B --> C[PR3: CV1000 POM pairing intercept]
+    B --> C[PR3: CV3/CV4 POM pairing intercept]
     C --> D[PR4: adapter drive/fn when paired]
     D --> E[PR5: REST API + UI]
     E --> F[PR6: StateFeed LOCO_INFO push]
@@ -483,7 +577,7 @@ flowchart TD
 |----|-------|------|
 | 1 | `contract/z21pairing.go` | Low |
 | 2 | UDP listen, client registry, handshake packets | Medium |
-| 3 | CV1000 intercept, Redis pair, no forward | Medium |
+| 3 | CV3/CV4 intercept, Redis pair, no forward | Medium |
 | 4 | Drive/function → Router, Z21Responder | Medium |
 | 5 | REST `z21-remote` API + `/remotes/z21` page + CS toggle | Low |
 | 6 | Push state to handsets | Medium |
@@ -495,10 +589,10 @@ flowchart TD
 
 | Risk | Mitigation |
 |------|------------|
-| 8-bit code space | Document clearly; random 1–255; optional rate limit later |
-| Real decoder CV1000 conflict | Never forward CV1000 through Z21 server when `--enable-z21` |
+| Pairing space | 2 500 pairs; reject duplicate active `(CV3, CV4)` per CS during TTL |
+| Real decoder CV3/CV4 conflict | Never forward CV3/CV4 pairing writes when `--enable-z21` |
 | No POM ACK in app | Status on `/remotes/z21` |
-| Stale paired session | 60-min drive inactivity auto-unpair |
+| Stale paired session | Z21 §1.1 — unpair after 60 s without any UDP |
 | Port 21105 clash with outbound Z21 client | Separate host IP or custom `--z21-port` + user docs |
 | Multiple control sources | Same as today: last write wins; audit `source: "z21-handset"` |
 | Full Z21 feature surface | Explicit unsupported list; return `LAN_X_UNKNOWN_COMMAND` |
@@ -512,15 +606,15 @@ flowchart TD
 - [ ] **`/remotes/z21`** shows pairing status, vehicle scope (fixed or all
       drivable), pair / unpair flows, and live session metadata.
 - [ ] `dcc-bus --enable-z21` listens on UDP and answers Z21 handshake.
-- [ ] UI-generated code (TTL 5 min) pairs a client on `LAN_X_CV_POM_WRITE_BYTE`
-      to CV1000 (only when Z21 server enabled for that CS).
+- [ ] UI-generated **CV3/CV4** pair (TTL 5 min) pairs a client after both POM writes
+      (only when Z21 server enabled for that CS). User copies numbers only — no encoding.
 - [ ] Redis session keyed by `(layoutId, commandStationId, IP, port)` with
       configurable vehicle scope (`allowAllVehicles` or explicit list).
-- [ ] CV1000 pairing writes are **not** sent to the track.
+- [ ] CV3/CV4 pairing writes are **not** sent to the track.
 - [ ] Unpaired clients cannot drive; paired clients respect vehicle scope +
       roster `DrivePolicy`.
-- [ ] **60 minutes** without `LAN_X_SET_LOCO_DRIVE` auto-unpairs; no estop.
+- [ ] **60 seconds** without any UDP ends session and unpairs (Z21 §1.1); no estop.
+- [ ] `LAN_LOGOFF` ends session and unpairs; no reply; no dead-man.
 - [ ] Paired clients reuse the same `cmd.Router` handlers as WebSocket.
-- [ ] Handset UDP drop / `LAN_LOGOFF` does **not** trigger dead-man or layout estop.
 - [ ] User documentation covers Command Station settings, `/remotes/z21`, Z21 app
-      IP setup, CV1000 pairing, and inactivity unpair.
+      IP setup, CV3/CV4 pairing, §1.1 keepalive (≥1 packet/min), and `LAN_LOGOFF`.
