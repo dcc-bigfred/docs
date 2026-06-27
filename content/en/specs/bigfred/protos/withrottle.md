@@ -932,44 +932,71 @@ and field experience:
 
 ## 19 BigFred mapping
 
-BigFred does **not** implement a WiThrottle server or client at this time. Layout
-control uses:
+BigFred implements an **optional inbound WiThrottle TCP server** inside the
+`dcc-bus` daemon, symmetric to the Z21 inbound UDP server, so Engine Driver and
+physical WiThrottle handsets drive through the same `cmd.Router` as the browser
+throttle. The implementation plan is
+[`../plans/withrottle-server.md`](../plans/withrottle-server.md). Layout control
+otherwise uses:
 
 | Path | Protocol | Typical hardware |
 |------|----------|------------------|
 | `z21` | Z21 LAN UDP **21105** | RailBOX RB1110, Roco Z21 |
+| `withrottle` | WiThrottle TCP **12090** | Engine Driver, WiThrottle for iOS |
 | `loconet_serial` / `loconet_tcp` | LocoNet | Digikeijs DR5000 + Uhlenbrock 63120 |
 
-The RB1110 exposes WiThrottle on TCP **12090** for **Engine Driver** and similar
-apps in parallel with Z21 — see
-[RB1110 §6.3](../../../related/commandstations/rb1110.md). BigFred and WiThrottle
-are **separate consumers** of the same command station; they do not share sessions.
+The RB1110 also exposes WiThrottle on TCP **12090** — see
+[RB1110 §6.3](../../../related/commandstations/rb1110.md). When BigFred owns the
+command station it binds its own WiThrottle port; BigFred and a vendor WiThrottle
+server are **separate consumers** of the same command station and do not share
+sessions.
 
-### 19.1 Conceptual mapping (informative)
+### 19.0 Pairing
 
-If BigFred were to add WiThrottle compatibility, the natural mapping from existing
-`dcc-bus` intents would be:
+Authorization uses a **6-digit numeric code** shown in the BigFred UI. The code is
+entered on the handset through one of two equivalent paths:
+
+1. **Function keys** — BigFred advertises a sentinel "Pair with BigFred" roster
+   entry to unpaired clients; the user acquires it and presses `F1`…`F9` (one
+   digit each) or `F10`…`F32` (two digits each) in sequence. This mirrors the Z21
+   function-key pairing flow.
+2. **Device name** — the user sets the Engine Driver Device Name to the code
+   (`N122145`); BigFred matches it on connect.
+
+The `HU` device id is the paired client key (`withrottle:<deviceId>`); sessions
+survive TCP reconnect without re-pairing. One pilot per user per command station
+is shared across the Z21 and WiThrottle inbound servers.
+
+### 19.1 Conceptual mapping
+
+The realized mapping from WiThrottle commands to `dcc-bus` intents:
 
 | WiThrottle | BigFred / DCC intent |
 |------------|----------------------|
 | `M…+` / `M…−` | Loco acquire / release (cf. slot dispatch) |
-| `M…A*<;>Vn` | `loco.setSpeed` |
+| `M…A*<;>Vn` | `loco.setSpeed` (`1` = emergency stop) |
 | `M…A*<;>Fxy` / `fxy` | `loco.setFunction` |
 | `M…A*<;>Rx` | Direction bit in `loco.setSpeed` |
-| `M…A*<;>X` | Emergency stop (per loco or layout policy) |
+| `M…A*<;>X` | Emergency stop (per loco) |
 | `PPA` | Track power (if exposed) |
-| `PTA` / `PRA` | Accessory / route (not in current BigFred scope) |
-| `PFT` | Fast clock (not in current BigFred scope) |
-| `*«n»` heartbeat | Analogous to `dcc-bus` WebSocket ping / dead-man's switch (§7e.5) |
+| `PTA` / `PRA` | Accessory / route (not in v1 scope) |
+| `PFT` | Fast clock (not in v1 scope) |
+| `RC*` | Advanced consists (not in v1 scope) |
+| `*«n»` heartbeat | Dead-man switch: E-stop subscribed locos on timeout, then unpair |
+| `RL` | Roster built from the paired user's allowed vehicles |
 
 ### 19.2 Capability snapshot
 
-| Capability | BigFred today |
-|------------|---------------|
-| WiThrottle server (TCP 12090) | ❌ Not implemented |
+| Capability | BigFred |
+|------------|---------|
+| WiThrottle server (TCP 12090) | ✅ Optional, opt-in per command station (see plan) |
+| Pairing (F-key + device-name code) | ✅ Planned |
+| Roster from allowed vehicles | ✅ Planned |
+| Turnouts / routes / fast clock / advanced consists | ❌ v1 ignores client cmds; not emitted |
 | WiThrottle client | ❌ Not implemented |
 | Coexist with Engine Driver on RB1110 | ✅ Different ports — Z21 **21105** vs WiThrottle **12090** |
 | Replace Engine Driver | N/A — complementary protocols |
+
 
 ---
 
