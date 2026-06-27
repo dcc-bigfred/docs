@@ -94,6 +94,7 @@ Buildroot, partitions, RT, `make image`.
   [`driver.go`](../../../pkgs/bigfred/dcc-bus/service/station/driver.go).
 - Z21 protocol: [`docs/bigfred/protos/z21.md`](../bigfred/protos/z21.md).
 - LocoNet protocol: [`docs/bigfred/protos/loconet.md`](../bigfred/protos/loconet.md).
+- WiThrottle protocol: [`docs/bigfred/protos/withrottle.md`](../bigfred/protos/withrottle.md).
 - DCC bus: [`16-dcc-bus/`](../bigfred/architecture/16-dcc-bus/README.md).
 - Centrals: [Digikeijs DR5000](https://www.digikeijs.com/),
   [RailBOX RB1110](https://www.railbox.pl/en/products/rb1110).
