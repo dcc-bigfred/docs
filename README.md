@@ -23,5 +23,6 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) (English) or [http://127.0.0
 | User guide | `content/en/guides/` |
 | Technical specification | `content/en/specs/` |
 | Related hardware & decoders | `content/en/related/` |
+| Coding standards (developers, not in MkDocs) | `coding-standards/` |
 
 Polish translations live under `content/pl/` (same paths). English is the source of truth; keep `pl/` in sync when editing docs (see `.cursor/skills/docs-i18n/SKILL.md`).

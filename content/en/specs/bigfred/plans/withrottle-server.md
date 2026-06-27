@@ -118,8 +118,9 @@ roster, and small contract additions.
    out of BigFred scope today; the server ignores `PTA`/`PRA`/`PFT`/`RC*` client
    commands and emits no `PTT`/`PTL`/`PRT`/`PRL`/`RCC`/`RCD`/`PFT` lines. Steal
    (`M…S`) returns `HM` "not supported" (Digitrax-only; BigFred owns slots).
-8. **mDNS discovery deferred.** v1 requires manual host:port entry in the app.
-   `_withrottle._tcp.local` advertisement is a follow-up.
+8. **mDNS discovery.** When the WiThrottle server is enabled, `dcc-bus` advertises
+   `_withrottle._tcp.local` on the inbound TCP port (default `12090`) via DNS-SD.
+   Manual host:port remains supported when multicast is blocked.
 9. **Roster is the controllable-locomotives list.** The WiThrottle `RL` roster
    sent to a paired client is **not** the full layout roster — it is built from
    the paired session's vehicle scope (`AllowedAddrs` / `VehicleIDs` /

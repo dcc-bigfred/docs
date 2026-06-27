@@ -142,8 +142,8 @@ sequenceDiagram
     participant Z21 as dcc-bus Z21 server
     participant CS as commandstation.Station
 
-    UI->>API: POST z21-remote/pairing (vehicles or allowAll)
-    API->>Redis: SET z21pair:req:{layoutId}:{csId}:{cv3}:{cv4} TTL=5m
+    UI->>API: POST remotes/z21/pairing (vehicles or allowAll)
+    API->>Redis: SET bigfred:remote:req:{layoutId}:{csId}:z21:{cv3}:{cv4} TTL=5m
     API-->>UI: pairingCV3 + pairingCV4 (e.g. 122, 145)
 
     Pilot->>Z21: UDP connect (implicit Z21 login)
@@ -262,9 +262,16 @@ convention).
 
 | Key | TTL | Payload |
 |-----|-----|---------|
-| `bigfred:z21pair:req:{layoutId}:{csId}:{cv3}:{cv4}` | **5 min** | `{layoutId, commandStationId, userId, pairingCV3, pairingCV4, displayLabel, vehicleIds[], addrs[], allowAllVehicles, createdAt}` — key uses the CV pair for O(1) lookup; `displayLabel` e.g. `"122-145"` for UI only |
-| `bigfred:z21pair:active:{layoutId}:{csId}:{clientKey}` | None; evicted on §1.1 idle | `{userId, vehicleIds[], allowedAddrs[], allowAllVehicles, pairedAt, pairingCV3, pairingCV4, lastSeenAt, clientKey}` |
-| `bigfred:z21pair:byuser:{layoutId}:{csId}:{userId}` | None | SET of `clientKey` values for listing / revoke |
+| `bigfred:remote:req:{layoutId}:{csId}:{reqId}` | **5 min** | `RemotePendingWire` — for Z21, `reqId` = `z21:{cv3}:{cv4}`; includes `protocol`, `userId`, `displayLabel`, `vehicleIds[]`, `allowedAddrs[]`, `allowAllVehicles`, `handsetBrakeSecs`, `pairingCV3`, `pairingCV4`, `createdAt` |
+| `bigfred:remote:active:{layoutId}:{csId}:{clientKey}` | None; evicted on §1.1 idle | `RemoteSessionWire` — `{protocol, userId, vehicleIds[], allowedAddrs[], allowAllVehicles, pairedAt, pairingCV3, pairingCV4, lastSeenAt, clientKey, handsetBrakeSecs}` |
+| `bigfred:remote:byuser:{layoutId}:{csId}:{userId}` | None | STRING → active `clientKey` (one pilot per user per CS) |
+| `bigfred:remote:reqbyuser:{layoutId}:{csId}:{userId}` | None | STRING → pending `req` key for this user |
+| `bigfred:remote:reqdedup:{layoutId}:{csId}:{protocol}` | None | SET of pending pair labels (`cv3:cv4` for Z21) |
+| `bigfred:remote:clients:{layoutId}:{csId}` | **30 min** (sticky idle) | `RemoteClientsSnapshotWire` — live handset presence for admin UI |
+| `bigfred:remote:sync:{layoutId}:{csId}` | — (pub/sub) | `RemoteSessionSyncEventWire` — loco-server → dcc-bus signal that a REST mutation (`unpair` / `scope`) changed an active session, so the daemon re-syncs that client without per-packet Redis reads |
+
+`bigfred:remote:reqdedup:*` carries a TTL refreshed on every pending req so
+abandoned pairing codes cannot accumulate and exhaust the 2500-pair space.
 
 `clientKey` = `"<ip>:<port>"` using the **source** address of the UDP datagram.
 
@@ -281,11 +288,10 @@ when `now - lastSeenAt > 60s` (sweeper) or on `LAN_LOGOFF`.
 
 `PairViaCV3CV4(pairingCV3, pairingCV4, clientKey, meta)`:
 
-1. `GET bigfred:z21pair:req:{layoutId}:{csId}:{cv3}:{cv4}` — miss or expired → fail
-2. `SET` `active` for `clientKey` copying `allowAllVehicles`, `addrs`, `userId`;
-   set `lastSeenAt = now`
-3. `DEL` the matched `req` key (and any secondary index)
-4. `SADD byuser:…`
+1. `GET bigfred:remote:req:{layoutId}:{csId}:z21:{cv3}:{cv4}` — miss or expired → fail
+2. `SET` `active` for `clientKey` copying scope fields; set `lastSeenAt = now`; evict prior session for same user if different `clientKey`
+3. `DEL` the matched `req` key (and `reqbyuser` / dedup index)
+4. `SET byuser:…` → `clientKey`
 
 **Removed from earlier drafts:** `z21pair:pending:*`, `POST …/confirm`, pending
 client list in the UI.
@@ -314,7 +320,7 @@ receives `--enable-z21` only when the flag is on.
 
 **Guardrails (UI + API):**
 
-- Pairing endpoints (`z21-remote/*`) return `409` or `400` when
+- Pairing endpoints (`/remotes/*`) return `409` or `400` when
   `z21ServerEnabled` is `false` for the target command station.
 - Disabling the flag stops the UDP listener on the next daemon restart; existing
   Redis `active` sessions may be revoked or left to expire (MVP: revoke on
@@ -326,15 +332,14 @@ Base path scoped by layout + command station. Used by `/remotes/z21`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/layouts/{lid}/command-stations/{csid}/z21-remote` | **Status** for the current user: `{paired, clientKey?, pairedAt?, lastSeenAt?, allowAllVehicles, allowedVehicles[], pendingPairing?}`. `pendingPairing` = `{pairingCV3, pairingCV4, displayLabel, expiresAt}` while a `req` exists for this user. |
-| `POST` | `…/z21-remote/pairing` | Start pairing. Body: `{vehicleIds?: string[], allowAllVehicles?: boolean}`. Requires `z21ServerEnabled`. Generates random valid `pairingCV3`/`pairingCV4`. Returns `{pairingCV3, pairingCV4, displayLabel, expiresAt, instructions}`. |
-| `PATCH` | `…/z21-remote/session` | Update paired session scope: `{vehicleIds?, allowAllVehicles?}` without re-pairing. |
-| `DELETE` | `…/z21-remote/session` | **Unpair** active session for the current user (optional `?clientKey=` if multiple). |
+| `GET` | `/api/v1/layouts/{lid}/command-stations/{csid}/remotes/status` | **Status** for the current user: `{paired, protocol?, clientKey?, pairedAt?, lastSeenAt?, allowAllVehicles, allowedVehicles[], pendingPairing?}`. `pendingPairing` = `{protocol, pairingCV3, pairingCV4, displayLabel, expiresAt}` while a `req` exists for this user. |
+| `GET` | `…/remotes/clients` | **Admin-only** (effective admin role, incl. sudo): snapshot of all connected handsets on this CS (`ipStickiness`, `clients[]` with IP + user login). The `remote.clientsChanged` WS event is likewise scoped to admin sessions. |
+| `POST` | `…/remotes/{protocol}/pairing` | Start pairing (`protocol` = `z21` today). Body: `{vehicleIds?, allowAllVehicles?, handsetBrakeSecs?}`. Requires `z21ServerEnabled` for Z21. Returns `{pairingCV3, pairingCV4, displayLabel, expiresAt, instructions}`. |
+| `DELETE` | `…/remotes/pairing` | Cancel pending pairing for the current user. |
+| `PATCH` | `…/remotes/session` | Update paired session scope: `{vehicleIds?, allowAllVehicles?, handsetBrakeSecs?}` without re-pairing. |
+| `DELETE` | `…/remotes/session` | **Unpair** active session for the current user. |
 
-Legacy alias names (`z21-pairing/*`) may be avoided — use `z21-remote` consistently
-in new code.
-
-Implementation: `server/cmd/`, `server/http/`, Redis via `server/service/redis.go`.
+Implementation: `server/cmd/remote.go`, `server/http/remote.go`, Redis via `remotepairing.Store`.
 Vehicle validation reuses `DriveSecurityContext` rules.
 
 ---
@@ -345,6 +350,10 @@ New module beside `ws/`:
 
 ```text
 dcc-bus/
+  discovery/
+    mdns.go             # DNS-SD registrar (_z21._udp, _withrottle._tcp)
+    beacon.go           # Z21 periodic UDP broadcast beacon
+    sidecar.go          # RunSidecar — mDNS + optional beacon per protocol
   z21server/
     server.go           # net.ListenUDP, read loop
     client_registry.go  # map[clientKey]*Client
@@ -494,17 +503,17 @@ the app router and linked from the main nav (e.g. “Remotes” / “Z21 handset
 | **Status** | “Not paired”; link to enable CS if needed | `clientKey` (`IP:port`), `pairedAt`, `lastSeenAt`, hint: keepalive ≥1 packet/min (§1.1) |
 | **Pending pair** | **CV3 = …** / **CV4 = …** (large type) + expiry countdown | — |
 | **Layout / CS picker** | Required | Same (switching CS shows that CS's status) |
-| **Vehicle scope** | Multi-select roster vehicles **or** toggle **“All vehicles I can drive”** (`allowAllVehicles`) | Same controls; `PATCH …/z21-remote/session` on save |
+| **Vehicle scope** | Multi-select roster vehicles **or** toggle **“All vehicles I can drive”** (`allowAllVehicles`) | Same controls; `PATCH …/remotes/session` on save |
 | **Pair** | “Generate” → e.g. **CV3 = 122**, **CV4 = 145** + 5-min TTL | Hidden or “Re-pair” (unpair first) |
-| **Unpair** | — | “Disconnect handset” → `DELETE …/z21-remote/session` |
+| **Unpair** | — | “Disconnect handset” → `DELETE …/remotes/session` |
 
-**Data:** `GET …/z21-remote` on load and after mutations; optional WS event
-`z21.remote.changed` for live status. i18n namespace `z21Remote` (`en`, `pl`,
+**Data:** `GET …/remotes/status` on load and after mutations; optional WS event
+`remote.clientsChanged` for live client list. i18n namespace `z21Remote` (`en`, `pl`,
 `de`).
 
-**API client:** `web/src/api/z21_remote.ts` with React Query hooks
-(`useZ21RemoteStatus`, `useStartZ21Pairing`, `useUpdateZ21RemoteSession`,
-`useUnpairZ21Remote`).
+**API client:** `web/src/api/remotes.ts` with React Query hooks
+(`useRemoteStatus`, `useStartRemotePairing`, `useUpdateRemoteSession`,
+`useUnpairRemote`, `useRemoteClients`).
 
 ### Command Station settings (enable Z21 server)
 
@@ -538,10 +547,21 @@ after the daemon restarts.
 5. **Deployment** — UDP `21105` on the `dcc-bus` host. The outbound Z21 client
    (`udp://real-z21:21105`) must use a **different host IP** than the inbound
    listener on the same machine (port conflict).
-6. **Docs (user guide)** — `/remotes/z21` walkthrough; CV3/CV4 pairing; **§1.1**
+6. **LAN discovery** — when `--enable-z21` is on, `dcc-bus` starts a discovery
+   sidecar alongside the UDP listener:
+   - **mDNS** — advertises `_z21._udp.local` on the inbound port (non-standard;
+     useful for mDNS-aware tools). TXT records include `layoutId`,
+     `commandStationId`, `serial`, and `proto=z21`.
+   - **Periodic UDP beacon** — every 2 s broadcasts a `LAN_GET_SERIAL_NUMBER`
+     reply frame to `255.255.255.255:21105` so passive Z21-app listeners can
+     spot the virtual command station on the LAN (complements the existing
+     on-demand handshake replies). Stock Z21 apps may still require manual IP
+     entry depending on client version; probe responses on UDP `21105` always
+     work.
+7. **Docs (user guide)** — `/remotes/z21` walkthrough; CV3/CV4 pairing; **§1.1**
    (≥1 UDP packet per minute while connected); **`LAN_LOGOFF`** on app exit;
    enabling the server under Command Station settings.
-7. **Metrics (optional)** — `z21_clients_active`, `z21_packets_rx`, `z21_pair_success`,
+8. **Metrics (optional)** — `z21_clients_active`, `z21_packets_rx`, `z21_pair_success`,
    `z21_pair_reject`.
 
 ---
@@ -579,7 +599,7 @@ flowchart TD
 | 2 | UDP listen, client registry, handshake packets | Medium |
 | 3 | CV3/CV4 intercept, Redis pair, no forward | Medium |
 | 4 | Drive/function → Router, Z21Responder | Medium |
-| 5 | REST `z21-remote` API + `/remotes/z21` page + CS toggle | Low |
+| 5 | REST `/remotes/*` API + `/remotes/z21` page + CS toggle | Low |
 | 6 | Push state to handsets | Medium |
 | 7 | Supervisord wiring, user documentation | Low |
 
