@@ -6,6 +6,7 @@ A short how-to for drivers and rolling-stock owners using BigFred.
 
 How to add vehicles to your catalogue, build a consist, and run it on a layout.
 
-## [Z21 handset](z21-handset.md)
+## [Remotes](remotes.md)
 
-Pair a stock Z21 app with BigFred, set vehicle scope, and stay connected on the LAN.
+Pair a Z21 app or Engine Driver / WiThrottle with BigFred and choose which
+locomotives you may drive.
