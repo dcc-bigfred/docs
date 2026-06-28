@@ -8,34 +8,34 @@ the BigFred throttle view — you only drive locomotives you are allowed to use 
 <div class="screenshot-item">
 <input type="checkbox" id="remote-device-z21" class="screenshot-lb-toggle">
 <label for="remote-device-z21" class="screenshot-thumb">
-<img src="assets/devices/tcs.png" alt="Z21 app">
+<img src="/docs/assets/devices/tcs.png" alt="Z21 app">
 <span>Z21 app</span>
 </label>
 <div class="screenshot-lightbox">
 <label for="remote-device-z21" class="screenshot-lightbox-backdrop" aria-label="Close"></label>
-<img src="assets/devices/tcs.png" alt="Z21 app">
+<img src="/docs/assets/devices/tcs.png" alt="Z21 app">
 </div>
 </div>
 <div class="screenshot-item">
 <input type="checkbox" id="remote-device-wlanmaus" class="screenshot-lb-toggle">
 <label for="remote-device-wlanmaus" class="screenshot-thumb">
-<img src="assets/devices/wlanmaus.jpg" alt="ROCO Z21 WlanMaus">
+<img src="/docs/assets/devices/wlanmaus.jpg" alt="ROCO Z21 WlanMaus">
 <span>ROCO Z21 WlanMaus</span>
 </label>
 <div class="screenshot-lightbox">
 <label for="remote-device-wlanmaus" class="screenshot-lightbox-backdrop" aria-label="Close"></label>
-<img src="assets/devices/wlanmaus.jpg" alt="ROCO Z21 WlanMaus">
+<img src="/docs/assets/devices/wlanmaus.jpg" alt="ROCO Z21 WlanMaus">
 </div>
 </div>
 <div class="screenshot-item">
 <input type="checkbox" id="remote-device-wifred" class="screenshot-lb-toggle">
 <label for="remote-device-wifred" class="screenshot-thumb">
-<img src="assets/devices/wifred.jpg" alt="WiFred">
+<img src="/docs/assets/devices/wifred.jpg" alt="WiFred">
 <span>WiFred</span>
 </label>
 <div class="screenshot-lightbox">
 <label for="remote-device-wifred" class="screenshot-lightbox-backdrop" aria-label="Close"></label>
-<img src="assets/devices/wifred.jpg" alt="WiFred">
+<img src="/docs/assets/devices/wifred.jpg" alt="WiFred">
 </div>
 </div>
 </div>
