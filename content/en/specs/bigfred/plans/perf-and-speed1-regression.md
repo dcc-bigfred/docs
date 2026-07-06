@@ -633,6 +633,43 @@ is still removed from the in-memory map so it stops consuming the
 `max_loconet_slots` budget — but `slot_budget_used` is only truly
 accurate once the CS confirms the release, hence the retry.
 
+### Async release on the `Reserve` hot path (implemented)
+
+`loco.setSpeed` runs **inline on the WS read loop** (not `dispatchAsync`),
+so any synchronous `stopAndRelease` inside `Reserve` head-of-line blocks
+the session (ping/pong, other throttle frames) for up to ~1.5 s when
+per-user cap eviction (D6) or D20 grace-eviction fires.
+
+**Decision:** split bookkeeping from the bus call on the `Reserve` path
+only (cap eviction + D20 grace-evict). `Deselect`, `DeselectDeferred`,
+`ReleaseSession`, `SweepIdle`, and `SweepDeferred` remain synchronous —
+they are not on the WS read loop.
+
+1. **Bookkeeping synchronous.** Under `mu`, the lease is removed from
+   `leases` / `perUser` / `userAddrOrder` and the addr is marked in
+   `releasing` before `Reserve` returns. `budgetActiveLocked()` drops
+   immediately so the caller can proceed.
+2. **Bus call asynchronous.** `enqueueRelease` posts a `releaseJob` to a
+   dedicated worker goroutine (`RunReleaseWorker`, started from the
+   daemon alongside `RunIdleSweep`). The worker calls `stopAndRelease`
+   (e-stop + `ReleaseSlot`) off the hot path.
+3. **Reuse guard.** If `Reserve` for the same addr arrives while a
+   background release is still scheduled, `releasing` is cleared and the
+   physical IN_USE slot is reused — the worker skips `stopAndRelease` when
+   it sees a live lease for that addr (`releaseScheduled`), and
+   `stopAndRelease` re-checks via `releaseAbortedByReuse` immediately
+   before `ReleaseSlot` so a reuse that lands during a slow e-stop still
+   cancels the physical release.
+4. **Queue full → sync fallback.** If `releaseCh` (cap 64) is saturated,
+   `enqueueRelease` calls `releaseScheduled` inline so a slot is never
+   silently leaked.
+5. **Accepted trade-off (transient-over-budget).** Between bookkeeping
+   removal and the worker's `ReleaseSlot`, the slot may still be IN_USE
+   on the command station but is **not** counted in `budgetActiveLocked`
+   or shown in diagnostics. This widens the existing "budget accurate only
+   after CS confirms release" window by a few hundred ms — acceptable
+   because the worker e-stops the loco promptly once scheduled.
+
 ## 5.7 Remote idle timeout (D7)
 
 - Config: `command_station.idle_timeout_secs`, default **60**, stored in
@@ -713,10 +750,30 @@ to the error→code table so `loco.select` / `train.select` /
 `HandleSetSpeed` / `HandleTrainSetSpeed` return the matching
 `loco.error{code}`. Neither auto-retries (no queueing, no stealing).
 
-Check order in `Select` / `SelectTrain`: (a) per-user cap (D6, evict or
-reject) → (b) global budget (D14, reject) → (c) `AcquireSlot` (D5,
-reject). The budget check (b) is a pure in-memory counter, so it adds no
-bus cost and short-circuits before any round-trip.
+Check order in `Reserve` / `Select` / `SelectTrain` (as implemented):
+**(a) global budget (D14/D20)** → **(b) per-user cap (D6)** → **(c)
+driver acquire / `AcquireSlot` (D5)**. This reverses the earlier
+"(a) cap → (b) budget" ordering because the budget gate now also owns the
+D20 grace-eviction path: `ensureBudgetHeadroomLocked` runs first so that,
+under budget pressure, the newest switcher-grace leases are yielded before
+anything else is attempted. The budget/cap checks run under the leaser
+`mu`; both short-circuit before any *new* slot acquire round-trip. Note,
+however, that the budget gate is **no longer purely in-memory**: when it
+evicts grace leases (D20) it performs an e-stop-then-`ReleaseSlot` bus call
+per evicted lease (see §5.6). Reserve-only bookings and reuse of an
+already-IN_USE slot (`needsPhysicalSlot == false`) skip the whole gate and
+stay on the hot path.
+
+**Accepted trade-off of budget-first.** If a user is simultaneously at
+their per-user cap **and** the global budget is full with no grace leases
+to evict, budget-first returns `bigfred_slot_budget_exceeded` even though
+evicting the user's own oldest lease (the cap path) would have freed a
+physical slot and let the acquire succeed. This corner case is accepted:
+the budget bar is a hard operator-configured guard on command-station
+occupancy, and refusing rather than silently e-stopping one of the user's
+other locos to make room is the more predictable behaviour (consistent
+with D11's "reject, don't auto-evict for trains"). The user resolves it by
+`deselect`-ing a vehicle explicitly.
 
 ## 5.10 Configuration changes
 
@@ -1175,8 +1232,9 @@ When `Reserve`, `Select`, or `SelectTrain` needs a **new physical slot**
    - While `budgetActiveLocked() + needed > maxSlots` and fewer than five
      eviction attempts: `takeDeferredReleasesLocked(1)` — collect leases
      with `releaseAt != zero` and no holders, pick the newest `releaseAt`.
-   - For each: delete lease, unlock, `stopAndRelease(addr,
-     ReleaseGraceEvict)`, re-lock.
+   - For each: delete lease, mark `releasing`, unlock,
+     `enqueueRelease(addr, ReleaseGraceEvict)` (async bus release; see
+     §5.6), re-lock.
 2. Re-check `budgetActiveLocked() + needed <= maxSlots`.
 3. If still full → `ErrBigFredSlotBudgetExceeded` (unchanged).
 4. Else proceed with `Reserve` / acquire as today.
@@ -1191,3 +1249,24 @@ When `Reserve`, `Select`, or `SelectTrain` needs a **new physical slot**
 
 **UI:** no change required; freed headroom may allow the pending
 `loco.select` to succeed on retry or on the next drive command.
+
+## 5.22 Background release worker (implemented)
+
+Daemon wiring: `go d.router.RunReleaseWorker(ctx)` alongside
+`RunIdleSweep`. The worker drains `releaseCh` (buffer 64) and serialises
+physical e-stop-then-release so the LocoNet `reqMu` is not contended by
+unbounded goroutines.
+
+**Triggers (async only):**
+
+| Path | Trigger | Sync alternative unchanged |
+|---|---|---|
+| `Reserve` | Per-user cap eviction (`deselect(..., async=true)`) | — |
+| `Reserve` | D20 grace-evict inside `ensureBudgetHeadroomLocked` | — |
+| `Deselect` / `DeselectDeferred` | — | synchronous `stopAndRelease` |
+| `ReleaseSession` / `SweepIdle` / `SweepDeferred` | — | synchronous |
+
+**Tests:** `TestReserveCapEvictDoesNotBlockOnBus`,
+`TestReserveReuseCancelsScheduledRelease`,
+`TestEnqueueReleaseSyncFallbackWhenFull`; grace-evict tests run with
+`startReleaseWorker` + `waitReleased`.
