@@ -13,6 +13,12 @@ carries its own `README.md` with its sub-TOC.
 
 ## [Goals](./01-goals.md)
 
+## [Usage context](./01a-usage-context.md)
+
+LAN-only hub deployment, scale (~100–150 vehicles), low latency,
+non-technical end users, simple Raspberry Pi setup, and proportionate
+security (PIN + WPA, no HTTPS).
+
 ## [Technology Stack](./02-tech-stack.md)
 
 ## [High-Level Architecture](./03-high-level-architecture.md)

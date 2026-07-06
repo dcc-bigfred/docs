@@ -25,6 +25,8 @@ permission checks via **`security`**; see
 
 ## [Goals](./architecture/01-goals.md)
 
+## [Usage context](./architecture/01a-usage-context.md)
+
 ## [Technology Stack](./architecture/02-tech-stack.md)
 
 ## [High-Level Architecture](./architecture/03-high-level-architecture.md)
