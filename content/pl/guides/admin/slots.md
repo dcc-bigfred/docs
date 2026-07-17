@@ -40,8 +40,9 @@ wysyła polecenie jazdy. Leaser egzekwuje politykę i synchronizuje stan przez
 | **`train.select`** | Holder na każdy członek z trakcją | Acquire per adres |
 
 Odrzucenie przy braku **CanDrive**, pełnym **`max_loconet_slots`**
-(`bigfred_slot_budget_exceeded`) lub **`max_vehicles_per_user`**
-(`vehicle_cap_exceeded`).
+(`bigfred_slot_budget_exceeded`), limicie **`max_vehicles_per_user`**
+(`vehicle_cap_exceeded`) albo — gdy **`allocate_physical_slots`** jest włączone —
+lokomotywie już IN_USE przez inny manipulator (`slot_in_use`).
 
 ### Kiedy slot jest zwalniany (LocoNet)
 
@@ -109,6 +110,7 @@ reguły slotów LocoNet wtedy nie obowiązują.
 | Ustawienie | LocoNet | Z21 |
 |------------|---------|-----|
 | **`max_loconet_slots`** | Max slotów IN_USE przez BigFreda (domyślnie 80) | Ukryte / N/A |
+| **`allocate_physical_slots`** | Wyłączna alokacja PE 1.0 jak fizyczny FRED (domyślnie **wł.**). Wył. = legacy piggyback na slot FRED-a | Ukryte / N/A |
 | **`idle_timeout_secs`** | Zwolnienie pilota po bezczynności (domyślnie 60 s; 0 = wył.) | To samo |
 | **`max_vehicles_per_user`** (layout) | Max prowadzonych pojazdów / user (domyślnie 8) | To samo |
 

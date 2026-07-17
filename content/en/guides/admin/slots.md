@@ -40,8 +40,9 @@ state via `SlotObserver`.
 | **`train.select`** | Holder per powered member | Acquire per member |
 
 Rejected if **CanDrive** fails, **`max_loconet_slots`** is full
-(`bigfred_slot_budget_exceeded`), or **`max_vehicles_per_user`** is exceeded
-(`vehicle_cap_exceeded`).
+(`bigfred_slot_budget_exceeded`), **`max_vehicles_per_user`** is exceeded
+(`vehicle_cap_exceeded`), or — when **`allocate_physical_slots`** is on — the
+loco is already IN_USE by another throttle (`slot_in_use`).
 
 ### When a slot is released (LocoNet)
 
@@ -109,6 +110,7 @@ only leaser caps and idle timeout matter.
 | Setting | LocoNet | Z21 |
 |---------|---------|-----|
 | **`max_loconet_slots`** | Max IN_USE slots through BigFred (default 80) | Hidden / N/A |
+| **`allocate_physical_slots`** | Exclusive PE 1.0 allocation like a physical FRED (default **on**). Off = legacy piggyback on a FRED-held slot | Hidden / N/A |
 | **`idle_timeout_secs`** | Remote idle release (default 60 s; 0 = off) | Same |
 | **`max_vehicles_per_user`** (layout) | Max driven vehicles per user (default 8) | Same |
 

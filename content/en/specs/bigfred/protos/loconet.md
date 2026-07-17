@@ -705,12 +705,31 @@ After this the throttle owns the slot and updates Speed/Dir/Functions (§10). On
 reconnect, a throttle re-reads the slot and continues only if the state matches its
 remembered value; otherwise it re-runs the logon.
 
-> **BigFred:** `ensureSlotLocked()` issues `OPC_LOCO_ADR`, waits for the matching
-> `E7` slot read, and caches `addr↔slot`. `querySlotLocked()` issues `OPC_RQ_SL_DATA`
-> `<BB> <slot> <0>` to refresh current state before toggling a single function bit.
-> BigFred currently relies on the master's allocation and does **not** issue the NULL
-> MOVE itself; it caches slot state and serialises request/response sequences under a
-> mutex (`reqMu`) with a sync channel.
+> **BigFred:** `AcquireSlot` / `acquireSlotFreshLocked()` issue `OPC_LOCO_ADR`, wait for
+> the matching `E7` slot read, and cache `addr↔slot`. When the slot is COMMON/IDLE,
+> BigFred promotes it with a **NULL MOVE**. Behaviour when the slot is already
+> **IN_USE** depends on the command-station setting **`allocatePhysicalSlots`**
+> (default **on**):
+>
+> | `allocatePhysicalSlots` | Already IN_USE by another throttle |
+> |-------------------------|--------------------------------------|
+> | **ON** (PE 1.0 exclusive) | Return `ErrSlotInUse` / WS `slot_in_use`; do **not** adopt the slot into ownership or keepalive |
+> | **OFF** (legacy piggyback) | Skip NULL MOVE; cache the slot and allow drive by slot number (FRED stays “owner”) |
+>
+> When BigFred successfully owns a slot (NULL MOVE), keepalive re-touches it so the
+> master does not purge to COMMON (~200 s); a physical FRED then cannot claim that
+> address (standard FRED firmware). Layout emergency stop still sends wire speed 1
+> on an externally IN_USE slot without stealing ownership.
+>
+> **Explicit steal:** after the UI shows `slot_in_use`, the operator may confirm
+> **Take over slot** (`loco.stealSlot`). That path stops the loco on the wire,
+> writes `OPC_SLOT_STAT1` to COMMON (preserving decoder-type bits), then NULL
+> MOVEs so BigFred becomes the owner. Normal `AcquireSlot` / drive commands still
+> refuse foreign IN_USE when `allocatePhysicalSlots` is on.
+>
+> Request/response sequences are serialised under `reqMu` with a sync channel.
+> `querySlotLocked()` issues `OPC_RQ_SL_DATA` `<BB> <slot> <0>` to refresh state
+> before toggling a single function bit.
 
 ---
 
@@ -1176,8 +1195,10 @@ transport parses `RECEIVE` lines (§20). Both push validated packets onto a shar
 
 | Constant | Value | Used for |
 |----------|-------|----------|
-| `lnOPC_LOCO_ADR` | `0xBF` | Address → slot request (`ensureSlotLocked`) |
+| `lnOPC_LOCO_ADR` | `0xBF` | Address → slot request (`ensureSlotLocked` / `AcquireSlot`) |
 | `lnOPC_RQ_SL_DATA` | `0xBB` | Slot status query (`querySlotLocked`) |
+| `lnOPC_MOVE_SLOTS` | `0xBA` | NULL MOVE (COMMON → IN_USE); dispatch put/get |
+| `lnOPC_SLOT_STAT1` | `0xB5` | Release to COMMON (`ReleaseSlot`) |
 | `lnOPC_LOCO_SPD` | `0xA0` | `SetSpeed` |
 | `lnOPC_LOCO_DIRF` | `0xA1` | Direction + F0–F4 |
 | `lnOPC_LOCO_SND` | `0xA2` | F5–F8 |
@@ -1213,8 +1234,11 @@ transport parses `RECEIVE` lines (§20). Both push validated packets onto a shar
 - `reqMu` serialises request/response sequences (one in flight at a time).
 - `beginSync()/endSync()` gate the `syncCh` so unsolicited bus traffic is not consumed
   while no one is waiting; `dispatch()` always feeds `observe()`.
-- `slotByAd` / `slotAddr` cache the address↔slot mapping; `dirfByA` / `sndByA` cache
-  function bytes so a single function toggle does not clobber the others.
+- `slotByAd` / `slotAddr` cache the address↔slot mapping for **owned** slots;
+  `dirfByA` / `sndByA` cache function bytes so a single function toggle does not
+  clobber the others.
+- **`allocatePhysicalSlots`** (command-station setting, default on): exclusive PE 1.0
+  acquisition vs legacy piggyback on foreign IN_USE — see §13.
 - Checksum is enforced on **send** (`sendLocked`) and **receive** (transport layer).
 
 ---
