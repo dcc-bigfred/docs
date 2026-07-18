@@ -349,11 +349,12 @@ Vehicle validation reuses `DriveSecurityContext` rules.
 New module beside `ws/`:
 
 ```text
+pkgs/bigfred/mdns/          # shared DNS-SD registrar (brutella/dnssd)
 dcc-bus/
   discovery/
-    mdns.go             # DNS-SD registrar (_z21._udp, _withrottle._tcp)
+    sidecar.go          # Run — mDNS via pkgs/bigfred/mdns + optional Z21 beacon
     beacon.go           # Z21 periodic UDP broadcast beacon
-    sidecar.go          # RunSidecar — mDNS + optional beacon per protocol
+    names.go            # InstanceName helper
   z21server/
     server.go           # net.ListenUDP, read loop
     client_registry.go  # map[clientKey]*Client

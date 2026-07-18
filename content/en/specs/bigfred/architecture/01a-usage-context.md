@@ -47,7 +47,9 @@ operator:
 No separate database install, reverse proxy, or TLS certificate setup is
 expected for a standard hub deployment. The Pi hosts `loco-server`,
 `supervisord`, Redis, and the per-station `dcc-bus` daemons; clients
-reach it over the club Wi-Fi.
+reach it over the club Wi-Fi. `loco-server` advertises itself via mDNS
+as **`http://bigfred.local:8080`** (no Avahi daemon on the hub; clients
+need OS mDNS/Bonjour support to resolve `.local`).
 
 ### 1a.4 End users and usability
 
