@@ -10,7 +10,7 @@ server main
   │
   └─ SupervisordService.Start(ctx)
         │
-        ├─ MkdirAll ConfigDir, LogDir, socket parent dir (0700)
+        ├─ MkdirAll ConfigDir, LogDir, pidfile parent dir (0700)
         ├─ verify supervisord + supervisorctl binaries exist
         ├─ render → supervisord.conf (atomic write)
         │
@@ -62,8 +62,9 @@ program, change `command` / `autostart` / `autorestart`) touch only
 via `reread` + `update` while other programs keep running.
 
 **Full daemon restart** is the fallback when global sections change
-(socket path, logfile, pidfile, `user=`, …). With stable hub paths set
-at service construction this should be rare (essentially first boot only).
+(HTTP listener address, logfile, pidfile, `user=`, …). With stable hub
+paths set at service construction this should be rare (essentially first
+boot only).
 
 ##### Full daemon restart (fallback)
 
@@ -130,7 +131,7 @@ Subscribers:
 
 ##### Daemon respawn (supervisord crash)
 
-If the health loop cannot reach the unix socket but `loco server` is
+If the health loop cannot reach the HTTP listener but `loco server` is
 still running:
 
 1. Log `supervisord daemon unreachable`.

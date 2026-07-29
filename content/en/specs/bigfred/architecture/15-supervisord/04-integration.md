@@ -211,4 +211,4 @@ To be copied into `14-acceptance-criteria/` when the milestone is scheduled:
    `scripts-executor` remains (`ps` check).
 7. Template unit tests cover at least: empty groups, single group / single
    program, multiple groups, `autostart=false`, `autorestart=false`,
-   `shellQuote` escaping for `/bin/bash -c`.
+   `shellQuote` escaping for shell `-c` wrappers.
