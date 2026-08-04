@@ -27,12 +27,12 @@ source of truth** for *what* should run.
    supervisord's built-in **`supervisorctl reread`** followed by
    **`supervisorctl update`**, which adds/removes/restarts individual
    programs without restarting the daemon. A full supervisord restart
-   is used only when global sections (`[supervisord]`, socket, …)
+   is used only when global sections (`[supervisord]`, HTTP listener, …)
    change — a rare case with stable hub paths.
 4. **Non-root only** — no `/etc/supervisor`, no system-wide `/var/run`
-   for this instance, no privileged ports, no `user=root`. Config, socket,
-   pidfile and logs live under `/data/…` on the hub RW partition (or the
-   same paths when developing against a mounted `/data` tree).
+   for this instance, no privileged ports, no `user=root`. Config, HTTP
+   listener, pidfile and logs live under `/data/…` on the hub RW partition
+   (or the same paths when developing against a mounted `/data` tree).
 5. **Observable** — the service exposes program/group status so higher
    layers (`ScriptService`, WS `system.status`, admin UI) can report
    health without re-implementing process tracking.
@@ -100,14 +100,14 @@ the RW partition mounted at `/data`; `SupervisordService.Start` creates
 missing directories with mode `0700`.
 
 The scripts-executor Unix socket remains at `$XDG_RUNTIME_DIR/loco/exec.sock`
-(§3a.7) — only supervisord's own config, control socket, pidfile and logs
-use the `/data` tree:
+(§3a.7) — only supervisord's own config, HTTP listener, pidfile and logs
+use the `/data` tree (listener binds loopback; address is not a path):
 
-| Path | Purpose | Mode |
+| Path / address | Purpose | Mode |
 |---|---|---|
 | `/data/etc/supervisord/` | config dir; `directory=` for managed programs | `0700` |
 | `/data/etc/supervisord/supervisord.conf` | rendered config | `0600` |
-| `/data/run/supervisord.sock` | `[unix_http_server]` socket | `0700` |
+| `127.0.0.1:9001` | `[inet_http_server]` HTTP listener (`InetHTTPAddr`) | — |
 | `/data/run/supervisord.pid` | supervisord pidfile | `0600` |
 | `/data/log/` | supervisord main log + per-program logs | `0700` |
 

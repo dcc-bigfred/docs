@@ -15,11 +15,12 @@ The Pi 5 host is the same; the kind depends on the central — see §1.2.
 
 | Link | Device path |
 |------|-------------|
-| Uhlenbrock 63120 → Pi 5 USB 3 | `/dev/ttyACM0` (typical) |
-| After udev rule (§3.5) | `/dev/loconet-63120` |
+| Uhlenbrock 63120 → Pi 5 USB (CP210x) | `/dev/ttyUSB0` (typical raw node) |
+| After udev + udevd (§3.5) | `/dev/loconet-63120` |
 
-Pin the path with a **udev** rule on the Uhlenbrock 63120 USB VID/PID. Add the service user
-to group **`dialout`**.
+Pin the path with **`99-loconet-usb.rules`** (`10c4:ea60`). Requires **udevd** under
+microinit. Add the service user to group **`dialout`**. Optional: DR5000 USB LocoNet
+COM via `loconet_serial` on `/dev/ttyUSBn` (see DR5000 related doc §8.1b).
 
 ## 5.2 LocoNet serial — connection URI
 

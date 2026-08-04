@@ -21,7 +21,7 @@ plan on the image described here.
 | Low jitter for `dcc-bus` | **PREEMPT_RT**, CPU isolation, `taskset` |
 | Power-loss tolerance | **RW `/data`** on ext4; **RO `/`**; SQLite WAL |
 | No moving parts on root | **NVMe** for `/` and `/data`; SD only for rescue |
-| Simple operations | **BusyBox init**, no systemd, no containers |
+| Simple operations | **microinit**, no systemd, no containers |
 | Reproducible builds | **Buildroot** + `make image` |
 
 ## 8.2 Software stack on the image
@@ -29,7 +29,8 @@ plan on the image described here.
 | Component | Role on hub |
 |-----------|-------------|
 | **Linux PREEMPT_RT** | aarch64, musl toolchain in Buildroot |
-| **BusyBox** | `init`, `rcS`, `S*` boot scripts |
+| **BusyBox** | utilities (`crond`, ash, …) |
+| **microinit** | PID 1; `/etc/init.d/*` scripts as service backends |
 | **Redis** | Loopback cache / pub-sub for BigFred ([`16-dcc-bus`](../bigfred/architecture/16-dcc-bus/README.md)) |
 | **SQLite3** | `loco-server` persistence |
 | **Dropbear** | SSH administration |
@@ -41,28 +42,27 @@ plan on the image described here.
 
 On Raspberry Pi OS deployments, **supervisord** fills a similar process-supervision
 role ([`15-supervisord`](../bigfred/architecture/15-supervisord/README.md)). On the
-reference image, **BusyBox `S*` scripts** start and stop services instead — same
+reference image, **microinit** starts and stops services via `/etc/init.d/` scripts — same
 logical stack, different init integration.
 
 ## 8.3 Boot sequence
 
 ```text
-PID 1: BusyBox init
+PID 1: microinit
   ↓
-/etc/init.d/rcS
+early-boot.sh (mount /data)
   ↓
-S05-cron       # BusyBox crond (reads /etc/crontabs/root)
-S10-mount      # NVMe partitions, RO root remount
-S15-network    # static IP or dhclient
-S20-sysctl     # RT / latency tunables
-S30-redis
-S40-alloy
-S50-fanctl
-S60-bigfred    # loco-server + dcc-bus (hub)
-S90-dropbear
+cron       # BusyBox crond (reads /etc/crontabs/root)
+network    # static IP or dhclient
+sysctl     # RT / latency tunables
+redis
+alloy
+fanctl
+bigfred    # loco-server + dcc-bus (hub)
+dropbear
 ```
 
-`S60-bigfred` is the production name for the plan’s `S60-loconet` script — it
+`bigfred` is the production name for the plan’s `loconet` script — it
 starts the Go hub binaries, not a separate product.
 
 ## 8.4 Storage layout
@@ -130,13 +130,13 @@ PRAGMA synchronous=NORMAL;
 
 - **Board:** Raspberry Pi 5
 - **Toolchain:** aarch64, **musl** libc
-- **Init:** BusyBox
+- **Init:** microinit
 
 ### Packages (defconfig baseline)
 
 | Package | Purpose |
 |---------|---------|
-| `busybox` | init, core utilities |
+| `busybox` | core utilities (`crond`, ash, …) |
 | `dropbear` | SSH |
 | `sqlite` | embedded DB |
 | `redis` | in-memory / pub-sub |
@@ -197,9 +197,9 @@ taskset -c 0,1 redis-server /data/etc/redis.conf
 taskset -c 0,1 alloy run /etc/alloy/config.alloy
 ```
 
-Exact flags and config paths belong in the `S*` scripts and Buildroot overlay.
+Exact flags and config paths belong in the `/etc/init.d/` scripts and Buildroot overlay.
 
-### Sysctl (`S20-sysctl`)
+### Sysctl (`sysctl`)
 
 Align with §3.3 where applicable:
 
@@ -226,7 +226,7 @@ ip addr add 192.168.10.10/24 dev eth0
 ip route add default via 192.168.10.1
 ```
 
-Optional DHCP in `S15-network`:
+Optional DHCP in `network`:
 
 ```bash
 dhclient eth0
@@ -248,7 +248,7 @@ Hub scripts should pet the watchdog only when `loco-server` and `dcc-bus` are he
 
 ### Fan control (`fanctl`)
 
-Daemon: `/usr/bin/fanctl` (started in `S50-fanctl`).
+Daemon: `/usr/bin/fanctl` (started in `fanctl`).
 
 | SoC temperature | Fan |
 |-----------------|-----|
@@ -327,7 +327,7 @@ Make executable in overlay: `chmod 755 overlays/usr/sbin/rotate-hub-logs`.
 ### Crontab
 
 Enable **BusyBox `crond`** in defconfig (`BR2_PACKAGE_BUSYBOX_CONFIG_CROND=y`).
-Start it from **`S05-cron`** before services that append logs:
+Start it from **`cron`** before services that append logs:
 
 ```sh
 #!/bin/sh
@@ -420,7 +420,7 @@ Bundle `web/dist` under `/usr/share/bigfred/web` (or path configured in
 
 | Topic | Reference image (this chapter) | Raspberry Pi OS (§3) |
 |-------|----------------------------------|----------------------|
-| Init | BusyBox `S*` scripts | systemd |
+| Init | microinit + `/etc/init.d/` | systemd |
 | Root FS | RO `/`, RW `/data` | RW `/` on NVMe |
 | RT | Built-in PREEMPT_RT | Package or manual kernel |
 | Process layout | `taskset`, isolcpus | Optional nice/systemd |

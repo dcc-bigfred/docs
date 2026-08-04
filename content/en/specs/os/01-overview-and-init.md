@@ -80,7 +80,7 @@ tmpfs           /var/log  tmpfs  defaults,size=64m   0  0
 tmpfs           /var/run  tmpfs  defaults,size=16m   0  0
 ```
 
-`S10-mount` runs `mount -a`, then **`mount -o remount,ro /`** so the root
+`mount` runs `mount -a`, then **`mount -o remount,ro /`** so the root
 filesystem stays read-only even if an earlier step mounted it read-write.
 
 ### Boot device names
@@ -93,7 +93,7 @@ the block-device path changes.
 
 ### What lives on `/data`
 
-`S10-mount` creates the directory tree expected by hub services:
+`mount` creates the directory tree expected by hub services:
 
 | Path | Purpose |
 |------|---------|
@@ -105,13 +105,13 @@ the block-device path changes.
 | `/data/opt/victoriametrics/` | VictoriaMetrics time-series storage |
 | `/data/logs/<service>/` | Persistent rotated logs (`bigfred`, `redis`, `alloy`, …) |
 
-On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `S10-mount`
+On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `mount`
 seeds it from the read-only template `/etc/bigfred/bigfred-os-ui.conf`
 (`post-build.sh` installs the template). The same applies to
 `/data/etc/redis.conf` from `/etc/redis/redis.conf` (RDB `save 60 100`,
 `appendonly no`).
 
-If partition p3 is empty, `S10-mount` may **`mkfs.ext4 -L bigfred-data`**
+If partition p3 is empty, `mount` may **`mkfs.ext4 -L bigfred-data`**
 before mounting (factory-fresh flash).
 
 ## 1.4 Init: from firmware to services
@@ -122,64 +122,58 @@ deterministic.
 ```mermaid
 flowchart TD
   FW[Raspberry Pi firmware] --> K[Linux kernel]
-  K --> INIT[BusyBox init PID 1]
-  INIT --> RCS[/etc/init.d/rcS]
-  RCS --> S05[S05-cron]
-  S05 --> S10[S10-mount]
-  S10 --> S15[S15-network]
-  S15 --> S20[S20-sysctl]
-  S20 --> S30[S30-redis]
-  S30 --> S35[S35-victoriametrics]
-  S35 --> S40[S40-alloy]
-  S40 --> S42[S42-grafana]
-  S42 --> S48[S48-bigfred-os-ui]
-  S48 --> S50[S50-fanctl]
-  S50 --> S90[S90-dropbear]
-  S90 --> S95[S95-watchdog]
+  K --> INIT[microinit PID 1]
+  INIT --> EB[early-boot.sh]
+  EB --> CRON[cron]
+  CRON --> NET[network]
+  NET --> SYS[sysctl]
+  SYS --> REDIS[redis]
+  REDIS --> VM[victoriametrics]
+  VM --> ALLOY[alloy]
+  ALLOY --> GRAF[grafana]
+  GRAF --> UI[bigfred-os-ui]
+  UI --> FAN[fanctl]
+  FAN --> DROP[dropbear]
+  DROP --> WD[watchdog]
   INIT --> GETTY[getty tty1 + ttyAMA10]
 ```
 
-### 1.4.1 `inittab`
+### 1.4.1 Boot orchestration
 
-File: `os/overlays/etc/inittab`
+**microinit** is PID 1. Service order and dependencies come from
+`/data/etc/microinit.json` (seeded from `overlays/etc/microinit/microinit.json`).
+Each service typically points `cmd` at a script in `/etc/init.d/` and runs
+`cmd start|stop|restart`.
 
-| Line | Action |
-|------|--------|
-| `::sysinit:/etc/init.d/rcS` | Run all `S??*` scripts once at boot |
-| `::respawn:…getty…tty1` | Local console |
-| `::respawn:…getty…ttyAMA10` | Serial console (115200) |
-| `::shutdown:…umount -a -r` | Clean unmount on shutdown |
+### 1.4.2 early-boot
 
-### 1.4.2 `rcS`
+File: `os/overlays/etc/microinit/early-boot.sh`
 
-File: `os/overlays/etc/init.d/rcS`
+Runs once before services: mounts `/data`, seeds configs, remounts root
+read-only as needed.
 
-Iterates `/etc/init.d/S??*` in **lexicographic order** and invokes each
-executable script with the `start` argument. This is standard SysV-style
-ordering by numeric prefix.
+### 1.4.3 Boot scripts
 
-### 1.4.3 Boot scripts (`S05` … `S95`)
-
-All scripts live in `os/overlays/etc/init.d/`. They use `start-stop-daemon`
-where a long-running daemon is needed.
+All scripts live in `os/overlays/etc/init.d/` (plain names, no SysV numeric
+prefix). Order is declared in `microinit.json` via `dependsOn`.
 
 | Script | Order | Role |
 |--------|-------|------|
-| **`S05-cron`** | 1 | Starts BusyBox `crond` (`/etc/crontabs/root` — nightly `rotate-hub-logs`) |
-| **`S10-mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
-| **`S15-network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
-| **`S20-sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
-| **`S30-redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/redis`, pinned to CPUs **0–1** |
-| **`S35-victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/opt/victoriametrics` |
-| **`S40-alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
-| **`S42-grafana`** | 8 | Grafana OSS — data under `/data/opt/grafana` |
-| **`S48-bigfred-os-ui`** | 9 | Hub admin UI on `:8090`, config `/data/etc/bigfred-os-ui.conf` |
-| **`S50-fanctl`** | 10 | Pi 5 fan policy daemon |
-| **`S90-dropbear`** | 11 | SSH for on-site administration |
-| **`S95-watchdog`** | 12 | Kernel watchdog (`/dev/watchdog`) — reboot on hang |
+| **`cron`** | 1 | Starts BusyBox `crond` (`/etc/crontabs/root` — nightly `rotate-hub-logs`) |
+| **`mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
+| **`network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
+| **`sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
+| **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/redis`, pinned to CPUs **0–1** |
+| **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/opt/victoriametrics` |
+| **`alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
+| **`grafana`** | 8 | Grafana OSS — data under `/data/opt/grafana` |
+| **`bigfred-os-ui`** | 9 | Hub admin UI on `:8090`, config `/data/etc/bigfred-os-ui.conf` |
+| **`fanctl`** | 10 | Pi 5 fan policy daemon |
+| **`dropbear`** | 11 | SSH for on-site administration |
+| **`watchdog`** | 12 | Kernel watchdog (`/dev/watchdog`) — reboot on hang |
 
-**Not enabled in the base image:** `S60-bigfred` (`loco-server` + `dcc-bus`).
-An example stub ships as `S60-bigfred.example`; rename and edit after installing
+**Not enabled in the base image:** `bigfred` (`loco-server` + `dcc-bus`).
+An example stub ships as `bigfred.example`; rename and edit after installing
 BigFred binaries (see [Hardware §8.3](../hardware/08-hub-os-image.md#83-boot-sequence)).
 
 ### 1.4.4 CPU affinity
@@ -191,14 +185,14 @@ isolcpus=2,3 nohz_full=2,3 rcu_nocbs=2,3 irqaffinity=0,1 rcu_nocb_poll
 ```
 
 Init scripts pin **housekeeping** daemons to CPUs **0–1** with `taskset -cp 0,1`
-(Redis, VictoriaMetrics, Grafana, Alloy, `bigfred-os-ui`). When `S60-bigfred` is
+(Redis, VictoriaMetrics, Grafana, Alloy, `bigfred-os-ui`). When `bigfred` is
 enabled, `loco-server` and `dcc-bus` should run on **`taskset -c 2,3`**
 ([Hardware §8.6](../hardware/08-hub-os-image.md#86-preempt_rt-kernel)).
 
 ### 1.4.5 Shutdown
 
 On `reboot` or `poweroff`, BusyBox init runs `umount -a -r` from `inittab`.
-`S10-mount stop` unmounts `/data` when init scripts are invoked with `stop`
+`mount stop` unmounts `/data` when init scripts are invoked with `stop`
 (manual service restart uses per-script `stop`/`start`).
 
 ## 1.5 Image layout vs runtime
@@ -217,7 +211,7 @@ microSD writers.
 
 ## 1.6 Operator-facing services after boot
 
-When all `S*` scripts complete, a typical hub exposes:
+When boot services are up, a typical hub exposes:
 
 | Service | Port | Notes |
 |---------|------|-------|
@@ -232,12 +226,11 @@ Exact URLs and credentials belong in the club runbook, not in the image alone.
 ## 1.7 Summary
 
 BigFred OS on Raspberry Pi 5 is an **offline-capable**, **read-only root**
-image with all mutable state on **`/data`**. **BusyBox init** runs a fixed
-sequence of **`S05`–`S95` scripts**: mount persistent storage, bring up the
-LAN, tune the kernel for RT workloads, start Redis and observability stack,
-launch the hub admin UI, and enable SSH and the hardware watchdog. BigFred
-application processes slot in at **`S60-bigfred`** once their binaries are
-installed.
+image with all mutable state on **`/data`**. **microinit** starts services via
+`/etc/init.d/` scripts: mount persistent storage, bring up the LAN, tune the
+kernel for RT workloads, start Redis and observability stack, launch the hub
+admin UI, and enable SSH and the hardware watchdog. BigFred application
+processes slot in via **`bigfred`** once their binaries are installed.
 
 Next chapters (planned): Buildroot workflow, overlay customization, hub apps,
 and integration with `loco-server` / `dcc-bus`.

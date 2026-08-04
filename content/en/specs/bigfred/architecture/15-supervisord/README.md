@@ -37,6 +37,6 @@ Wiring in `cli/root.go`, `scripts-executor` migration, `system.status` events.
 | Config & runtime paths | Hub paths under `/data/etc/supervisord/`, `/data/run/`, `/data/log/` |
 | Config authoring | embedded `text/template` → atomic write to `supervisord.conf` |
 | Apply config changes | regenerate file, then **`supervisorctl reread` + `update`** (built-in hot reload); full daemon restart only when global sections change |
-| Process declaration | `(command, autostart, autorestart)` inside a named **process group**; `command` is wrapped as `/bin/bash -c '…'` |
+| Process declaration | `(command, autostart, autorestart)` inside a named **process group**; `command` is wrapped as `<shell> -c '…'` (`DefaultShell`: `/bin/bash` → `/bin/sh` → `/system/bin/sh`) |
 | Single instance | one `loco server` per machine — no multi-instance ownership checks |
 | External dependency | `supervisord` + `supervisorctl` binaries on `PATH` (Python `supervisor` package) |
