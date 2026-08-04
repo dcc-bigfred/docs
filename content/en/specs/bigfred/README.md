@@ -55,7 +55,9 @@ permission checks via **`security`**; see
 
 ## [Acceptance Criteria](./architecture/14-acceptance-criteria/README.md)
 
-## [Process Supervisor (Supervisord)](./architecture/15-supervisord/README.md)
+## [Process Supervisor (Supervisord) — Superseded](./architecture/15-supervisord/README.md)
+
+Superseded by [microinit](https://github.com/dcc-bigfred/microinit).
 
 ## [DCC Bus Daemon (`dcc-bus`)](./architecture/16-dcc-bus/README.md)
 

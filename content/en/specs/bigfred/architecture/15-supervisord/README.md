@@ -1,3 +1,6 @@
+> [!WARNING]
+> **SUPERSEDED:** Process management now uses [microinit](https://github.com/dcc-bigfred/microinit), with JSON drop-ins and IPC. BigFred writes service drop-ins under `$DATA_DIR/etc/microinit.d/services/{bigfred,infra}/`. This chapter is retained as historical documentation.
+
 ## §7d Process Supervisor (Supervisord)
 
 This section describes a **non-root supervisord integration** inside

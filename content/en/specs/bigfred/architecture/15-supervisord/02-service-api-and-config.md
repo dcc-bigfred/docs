@@ -1,3 +1,5 @@
+> **Superseded:** See the [chapter notice](./README.md); process management now uses microinit.
+
 ### §7d.2 Service API & configuration model
 
 #### Package layout
