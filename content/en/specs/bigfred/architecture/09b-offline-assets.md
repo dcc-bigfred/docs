@@ -25,7 +25,7 @@ works on an isolated VLAN.
 | Roboto (UI) | `@fontsource/roboto` imported in `main.tsx` | hashed `.woff2` beside JS/CSS |
 | JetBrains Mono (hub logs) | `@fontsource/jetbrains-mono` in hub OS UI | same |
 | MUI icons | tree-shaken from `@mui/icons-material` | JS bundle |
-| Throttle / function SVGs | `import … from "*.svg"` | inlined or hashed files |
+| Throttle / function icons | SVG sources in `web/src/icons/*.svg`; build rasterizes to `web/src/icons/png/*.png` (`rsvg-convert`) then Vite `import.meta.glob` | inlined data-URL or hashed `.png` |
 | Radio / radiostop / PA Ogg | `import … from "*.ogg"` or `web/public/sounds/` | `dist/assets/` or `dist/sounds/` |
 | Locale JSON | static `import` in `web/src/i18n/index.ts` | JS chunks (§7c.10) |
 

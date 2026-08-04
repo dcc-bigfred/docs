@@ -97,18 +97,35 @@ nice/IO tuning.
 | User in **`dialout`** | Serial permissions |
 | **Single opener** of `/dev/loconet-63120` | No `minicom` while `dcc-bus` runs |
 
-## 3.5 udev rule for Uhlenbrock 63120
+## 3.5 udev rules for LocoNet USB (hub OS)
+
+Uhlenbrock **63120** is a Silicon Labs **CP210x** (`10c4:ea60`) → `/dev/ttyUSB*`,
+not ACM. Hub image ships `overlays/etc/udev/rules.d/99-loconet-usb.rules` and
+runs **udevd** under microinit (required for `SYMLINK` / `dialout`).
 
 ```bash
-udevadm info -a -n /dev/ttyACM0 | grep -E '{idVendor}|{idProduct}|{serial}'
+udevadm info -a -n /dev/ttyUSB0 | grep -E '{idVendor}|{idProduct}|{serial}'
+ls -l /dev/loconet-63120
 ```
 
 ```udev
-# /etc/udev/rules.d/99-uhlenbrock-63120.rules
-SUBSYSTEM=="tty", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="yyyy", SYMLINK+="loconet-63120", GROUP="dialout", MODE="0660"
+# /etc/udev/rules.d/99-loconet-usb.rules (excerpt — hub overlay)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
+  SYMLINK+="loconet-63120", GROUP="dialout", MODE="0660"
 ```
 
-On the **hub image**, bake this rule into the Buildroot **overlay** (§8.9).
+Also symlinked: RR-CirKits LocoBuffer-USB (`0403:c7d0` → `loconet-lb-usb`),
+DIY CH340 (`1a86:7523` → `loconet-ch340`). `ttyUSB*` / `ttyACM*` get
+`GROUP=dialout`. DR5000 / YaMoRC YD7010 multi-VCP USB stubs (FTDI LocoNet COM —
+fill VID/PID/`bInterfaceNumber` after `udevadm info`):
+`99-loconet-centrals.rules`. Then use `loconet_serial` on
+`/dev/loconet-dr5000` or `/dev/loconet-yd7010` (or raw `ttyUSBn`).
+
+**RB1110 USB** (`28e9:018a`, CDC ACM) is LI100F — **not** a BigFred path; use
+**Z21** UDP. Do not add a `loconet-*` symlink for it.
+
+On the **hub image**, bake rules into the Buildroot **overlay** (§8.9) and keep
+the **udevd** microinit service enabled.
 
 ## 3.6 Build and deploy BigFred
 

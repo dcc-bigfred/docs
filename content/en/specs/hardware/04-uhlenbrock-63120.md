@@ -20,7 +20,7 @@ Command station LocoNet ── RJ12 ── [optional 62280 Luisa] ── RJ12 �
 | **RB1110:** | Use **`z21`** (§7), not this adapter |
 | **Do not** connect RailSync pins 1 & 6 to the Uhlenbrock 63120 | Data + ground only |
 | **Uhlenbrock 63120 is bus-powered** on LocoNet | Central must be **on**; weak bus → **62280** |
-| **One** BigFred process opens the USB serial port | No parallel JMRI on the same `/dev/ttyACM*` |
+| **One** BigFred process opens the USB serial port | No parallel JMRI on the same `/dev/ttyUSB*` / `/dev/loconet-63120` |
 
 ## 4.2 LNCV configuration (required for BigFred)
 
@@ -89,7 +89,7 @@ applies it without a LocoNet acknowledge — reconnect at the new baud to verify
 
 | Flag | Default | Purpose |
 |------|---------|---------|
-| `--device` | from `~/.loco.yaml` | Serial path (`/dev/ttyUSB0`, `/dev/ttyACM0`, `/dev/loconet-63120`) |
+| `--device` | from `~/.loco.yaml` | Serial path (`/dev/loconet-63120`, `/dev/ttyUSB0`) |
 | `--baud` | `115200` | Current USB baud (must match LNCV 2) |
 | `--article` / `-a` | `6312` | LNCV article (`63120` accepted) |
 | `--addr` | `1` | Module address on LocoNet (LNCV 0) |
@@ -197,13 +197,13 @@ After udev (§3.5):
 
 | Field | Value |
 |-------|-------|
-| Device | `/dev/loconet-63120`, `/dev/ttyACM0`, or `/dev/ttyUSB0` (depends on USB bridge chip) |
+| Device | `/dev/loconet-63120` (udev) or `/dev/ttyUSB0` (CP210x) |
 | BigFred URI | `serial:///dev/loconet-63120:57600` |
 
 Identify the device after plug-in:
 
 ```bash
-ls -l /dev/ttyACM* /dev/ttyUSB* 2>/dev/null
+ls -l /dev/loconet-63120 /dev/ttyUSB* 2>/dev/null
 dmesg | tail -20
 ```
 

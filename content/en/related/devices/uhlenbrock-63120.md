@@ -211,29 +211,29 @@ Pinout and topology: [`hardware/02-loconet-electrical.md`](../../specs/hardware/
 
 ### 7.2 Driver and Linux (BigFred host)
 
-On **Linux** (Raspberry Pi 5 hub image), the device typically enumerates as a
-**USB serial port** (`/dev/ttyACM*`) — often via the kernel **cdc_acm** or a
-USB-UART bridge driver, depending on hardware revision. No Uhlenbrock Windows
-installer is required.
+On **Linux** (Raspberry Pi 5 hub image), the 63120 is a **Silicon Labs CP210x**
+(`10c4:ea60`) → kernel **`cp210x`** → `/dev/ttyUSB*`. No Uhlenbrock Windows
+installer is required. Hub fragment enables `CONFIG_USB_SERIAL_CP210X`.
 
 **Install driver before first USB plug-in** (handbook) — on Linux, verify with
-`dmesg` after connect.
+`dmesg` / `lsusb | grep -i 10c4` after connect.
 
-Pin a stable device path with **udev** (example placeholders — read VID/PID from
-your unit):
+Stable path via **udev** (hub overlay; needs **udevd** microinit service):
 
 ```bash
-udevadm info -a -n /dev/ttyACM0 | grep -E '{idVendor}|{idProduct}|{serial}'
+udevadm info -a -n /dev/ttyUSB0 | grep -E '{idVendor}|{idProduct}|{serial}'
+ls -l /dev/loconet-63120
 ```
 
 ```udev
-# /etc/udev/rules.d/99-uhlenbrock-63120.rules
-SUBSYSTEM=="tty", ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="yyyy", \
+# Hub overlay: /etc/udev/rules.d/99-loconet-usb.rules
+# Uhlenbrock 63120 — Silicon Labs CP210x
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
   SYMLINK+="loconet-63120", GROUP="dialout", MODE="0660"
 ```
 
-Add the `dcc-bus` service user to group **`dialout`**. Hub image: bake the rule
-into the Buildroot overlay ([`hardware/03-host-platform.md` §3.5](../../specs/hardware/03-host-platform.md)).
+Add the `dcc-bus` service user to group **`dialout`**. Details:
+[`hardware/03-host-platform.md` §3.5](../../specs/hardware/03-host-platform.md).
 
 Use a **short USB 3** cable to the Pi; avoid sharing the port with other high-bandwidth
 devices during bring-up.
@@ -329,7 +329,7 @@ handbook.
 
 - [ ] 63120 on **LocoNet-T** (DR5000); central powered; LocoNet LED **blinks** on activity (not solid).
 - [ ] LNCV **2 = 3** (57600), **LNCV 4 = 1** (Direct mode) verified (`rb lncv get` or LocoNet-Tool).
-- [ ] USB connected to Pi; `/dev/loconet-63120` (or `ttyACM*`) present; user in **`dialout`**.
+- [ ] USB connected to Pi; `/dev/loconet-63120` (or `ttyUSB*`) present; user in **`dialout`**; `udevd` running.
 - [ ] No other program holds the serial port (JMRI, minicom, LocoNet-Tool on same path).
 - [ ] BigFred catalogue: `loconet_serial`, URI `serial:///dev/loconet-63120:57600`.
 - [ ] `dcc-bus` log: no sustained `bad checksum` / `timeout waiting for slot`.
