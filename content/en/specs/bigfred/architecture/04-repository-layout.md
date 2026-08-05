@@ -1,3 +1,5 @@
+> **Superseded process-management note.** References to supervisord in this historical layout are superseded by [microinit](https://github.com/dcc-bigfred/microinit), which uses JSON drop-ins and IPC. See the [supersession notice](./15-supervisord/README.md).
+
 ## 3. Repository Layout
 
 The web layer is added next to the existing packages, the existing code is

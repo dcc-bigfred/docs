@@ -1,3 +1,5 @@
+> **Superseded:** See the [chapter notice](./README.md); process management now uses microinit.
+
 ### §7d.4 Integration with the server
 
 #### Wiring in `cli/root.go`

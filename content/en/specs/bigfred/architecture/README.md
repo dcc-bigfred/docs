@@ -51,9 +51,9 @@ Bundled fonts/CSS/JS, no CDN at runtime, `check-offline-bundle` gate.
 
 ## [Acceptance Criteria](./14-acceptance-criteria/README.md)
 
-## [Process Supervisor (Supervisord)](./15-supervisord/README.md)
+## [Process Supervisor (Supervisord) — Superseded](./15-supervisord/README.md)
 
-Non-root process groups, Go templates, hot reload, daemon lifecycle.
+Superseded by [microinit](https://github.com/dcc-bigfred/microinit); retained for historical reference.
 
 ## [DCC Bus Daemon (`dcc-bus`)](./16-dcc-bus/README.md)
 
