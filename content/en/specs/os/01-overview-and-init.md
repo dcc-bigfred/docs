@@ -98,11 +98,11 @@ the block-device path changes.
 | Path | Purpose |
 |------|---------|
 | `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `configure-ethernet.conf`, …) |
-| `/data/sqlite/` | `loco-server` database (when BigFred is installed) |
-| `/data/redis/` | Redis RDB / working files |
-| `/data/alloy/` | Grafana Alloy state (optional) |
-| `/data/opt/grafana/` | Grafana data, logs, plugins |
-| `/data/opt/victoriametrics/` | VictoriaMetrics time-series storage |
+| `/data/var/db/bigfred.sqlite3` | `loco-server` database (when BigFred is installed) |
+| `/data/var/db/redis/` | Redis RDB / working files |
+| `/data/var/lib/alloy/` | Grafana Alloy state (optional) |
+| `/data/var/lib/grafana/` | Grafana data, logs, plugins |
+| `/data/var/lib/victoriametrics/` | VictoriaMetrics time-series storage |
 | `/data/logs/<service>/` | Persistent rotated logs (`bigfred`, `redis`, `alloy`, …) |
 
 On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `mount`
@@ -163,10 +163,10 @@ prefix). Order is declared in `microinit.json` via `dependsOn`.
 | **`mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
 | **`network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
 | **`sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
-| **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/redis`, pinned to CPUs **0–1** |
-| **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/opt/victoriametrics` |
+| **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/var/db/redis`, pinned to CPUs **0–1** |
+| **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/var/lib/victoriametrics` |
 | **`alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
-| **`grafana`** | 8 | Grafana OSS — data under `/data/opt/grafana` |
+| **`grafana`** | 8 | Grafana OSS — data under `/data/var/lib/grafana` |
 | **`bigfred-os-ui`** | 9 | Hub admin UI on `:8090`, config `/data/etc/bigfred-os-ui.conf` |
 | **`fanctl`** | 10 | Pi 5 fan policy daemon |
 | **`dropbear`** | 11 | SSH for on-site administration |
