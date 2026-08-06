@@ -81,7 +81,7 @@ competing Z21 client (mobile app).
 **Host (both)**
 
 - [ ] NVMe partitions per §8.4 (or Pi OS NVMe root); RT / isolcpus documented.
-- [ ] Hub image: boot under 10 s, watchdog and fanctl running (§8.11).
+- [ ] Hub image: boot under 10 s, watchdog running, kernel fan control active (§8.11).
 - [ ] `rotate-hub-logs` and crontab present (§8.9).
 
 **DR5000 + Uhlenbrock 63120**

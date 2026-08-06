@@ -17,7 +17,7 @@ writes** without multi-second stalls.
 | **NVMe SSD** | See [§8.4](./08-hub-os-image.md#84-storage-layout) — e.g. **WD SN740 256 GB** |
 | **Rescue microSD** | Endurance 32 GB (Samsung PRO Endurance, SanDisk Max Endurance) — optional |
 | **Power supply** | Official **27 W USB-C** PSU for Pi 5 |
-| **Cooling** | Active cooler; **fanctl** on reference image (§8.8) |
+| **Cooling** | Active cooler; kernel `pwm-fan` via `config.txt` (§8.8) |
 | **Ethernet** | Gigabit cable to club LAN (preferred over WiFi for many clients) |
 | **Uhlenbrock 63120** | **DR5000 path only** — art. **63120** + LocoNet-Tool for LNCV |
 | **LocoNet cable** | 6P6C RJ12 to **DR5000 LocoNet-T** |

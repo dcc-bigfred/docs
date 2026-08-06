@@ -26,6 +26,6 @@ SPA assets bundled at build time (applies to `bigfred-os-ui` on the hub).
 |------|------|
 | `bigfred-os/os/` | Buildroot `BR2_EXTERNAL` — kernel, defconfig, overlays |
 | `bigfred-os/os/overlays/` | `fstab`, `inittab`, `init.d/S*`, Redis/Grafana configs |
-| `bigfred-os/apps/` | Hub Go binaries (`bigfred-os-ui`, `fanctl`, …) |
+| `bigfred-os/apps/` | Hub Go binaries (`bigfred-os-ui`, …) |
 
 Build artefact: `os/output/images/hub-nvme.img` (symlink `sdcard.img`).
