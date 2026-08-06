@@ -98,12 +98,27 @@ the block-device path changes.
 | Path | Purpose |
 |------|---------|
 | `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `configure-ethernet.conf`, …) |
-| `/data/sqlite/` | `loco-server` database (when BigFred is installed) |
-| `/data/redis/` | Redis RDB / working files |
-| `/data/alloy/` | Grafana Alloy state (optional) |
-| `/data/opt/grafana/` | Grafana data, logs, plugins |
-| `/data/opt/victoriametrics/` | VictoriaMetrics time-series storage |
+| `/data/var/db/bigfred/` | `loco-server` SQLite directory (`bigfred.sqlite3` + WAL/SHM) |
+| `/data/var/db/redis/` | Redis RDB / working files |
+| `/data/var/lib/alloy/` | Grafana Alloy state (optional) |
+| `/data/var/lib/grafana/` | Grafana data, logs, plugins |
+| `/data/var/lib/victoriametrics/` | VictoriaMetrics time-series storage |
 | `/data/logs/<service>/` | Persistent rotated logs (`bigfred`, `redis`, `alloy`, …) |
+| `/home/bigfred` | `bigfred` `$HOME` (tmpfs; no login shell) |
+
+### Service accounts
+
+Hub services drop privileges via microinit `securityContext.runAsUser`:
+
+| User | Primary group | Supplementary | Runs |
+|------|---------------|---------------|------|
+| `redis` | `redis` | — | Redis |
+| `alloy` | `alloy` | — | Grafana Alloy |
+| `bigfred` | `bigfred` | `dialout` | loco-server (serial devices) |
+| `metrics` | `metrics` | — | VictoriaMetrics, Grafana |
+
+`bigfred-os-ui` stays root (PAM / system admin). The microinit control socket
+allows `bigfred` via `socketAllowUsers` (`0660`, group of the first listed user).
 
 On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `mount`
 seeds it from the read-only template `/etc/bigfred/bigfred-os-ui.conf`
@@ -163,10 +178,10 @@ prefix). Order is declared in `microinit.json` via `dependsOn`.
 | **`mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
 | **`network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
 | **`sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
-| **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/redis`, pinned to CPUs **0–1** |
-| **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/opt/victoriametrics` |
+| **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/var/db/redis`, pinned to CPUs **0–1** |
+| **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/var/lib/victoriametrics` |
 | **`alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
-| **`grafana`** | 8 | Grafana OSS — data under `/data/opt/grafana` |
+| **`grafana`** | 8 | Grafana OSS — data under `/data/var/lib/grafana` |
 | **`bigfred-os-ui`** | 9 | Hub admin UI on `:8090`, config `/data/etc/bigfred-os-ui.conf` |
 | **`fanctl`** | 10 | Pi 5 fan policy daemon |
 | **`dropbear`** | 11 | SSH for on-site administration |
