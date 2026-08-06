@@ -14,7 +14,7 @@ repository under `os/` (Buildroot external) and `apps/` (hub binaries).
 |------|--------|
 | **Board** | **Raspberry Pi 5** (64-bit, `bcm2712`) |
 | **Boot medium** | **microSD** (endurance class) or **NVMe** via M.2 HAT+ — same three-partition layout |
-| **Cooling** | Pi 5 active cooler; `fanctl` adjusts speed by SoC temperature |
+| **Cooling** | Pi 5 active cooler; kernel `pwm-fan` adjusts speed by SoC temperature |
 | **Network** | Wired Ethernet (`eth0`) on the club LAN — static or DHCP via `configure-ethernet` |
 | **USB** | Uhlenbrock 63120 LocoNet adapter (when using `loconet_serial` command stations) |
 
@@ -147,8 +147,7 @@ flowchart TD
   VM --> ALLOY[alloy]
   ALLOY --> GRAF[grafana]
   GRAF --> UI[bigfred-os-ui]
-  UI --> FAN[fanctl]
-  FAN --> DROP[dropbear]
+  UI --> DROP[dropbear]
   DROP --> WD[watchdog]
   INIT --> GETTY[getty tty1 + ttyAMA10]
 ```
@@ -183,9 +182,8 @@ prefix). Order is declared in `microinit.json` via `dependsOn`.
 | **`alloy`** | 7 | Grafana Alloy (optional package) — skips if binary absent |
 | **`grafana`** | 8 | Grafana OSS — data under `/data/var/lib/grafana` |
 | **`bigfred-os-ui`** | 9 | Hub admin UI on `:8090`, config `/data/etc/bigfred-os-ui.conf` |
-| **`fanctl`** | 10 | Pi 5 fan policy daemon |
-| **`dropbear`** | 11 | SSH for on-site administration |
-| **`watchdog`** | 12 | Kernel watchdog (`/dev/watchdog`) — reboot on hang |
+| **`dropbear`** | 10 | SSH for on-site administration |
+| **`watchdog`** | 11 | Kernel watchdog (`/dev/watchdog`) — reboot on hang |
 
 **Not enabled in the base image:** `bigfred` (`loco-server` + `dcc-bus`).
 An example stub ships as `bigfred.example`; rename and edit after installing

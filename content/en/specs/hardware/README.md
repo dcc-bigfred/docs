@@ -55,7 +55,7 @@ flowchart LR
 | In scope | Out of scope |
 |----------|--------------|
 | Pi 5 + hub OS image (Buildroot) | DIY LocoNet interface |
-| NVMe layout, RT, fanctl, Alloy | Full Buildroot fork maintenance |
+| NVMe layout, RT, Alloy | Full Buildroot fork maintenance |
 | Uhlenbrock 63120 + LocoNet path (DR5000) | Custom MCU firmware |
 | Z21 path (RB1110, dual-protocol notes) | Building a command station |
 | BigFred hub + driver limits | Every unsupported central model |

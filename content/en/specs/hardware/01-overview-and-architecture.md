@@ -101,7 +101,7 @@ and persistence.
 | **Low I/O latency** | NVMe **`/data`** for SQLite/Redis ([§8](./08-hub-os-image.md)) |
 | **Scheduling** | PREEMPT_RT, `isolcpus`, `taskset` on hub image |
 | **Separation** | Pi in rack; central at layout |
-| **Operations** | RO root, watchdog, fanctl, Alloy |
+| **Operations** | RO root, watchdog, Alloy |
 
 LocoNet path also benefits from stable **USB 3** to the Uhlenbrock 63120. Z21 path needs
 stable **LAN** to the central (§7.3). OS image build: [§8](./08-hub-os-image.md).

@@ -37,7 +37,6 @@ plan on the image described here.
 | **Grafana Alloy** | Metrics/logs shipping |
 | **htop** | On-device diagnostics |
 | **Hardware watchdog** | Reboot on hang / kernel panic |
-| **fanctl** | Pi 5 active cooler by temperature |
 | **BigFred** | `loco-server` + `dcc-bus` (+ static `web/dist`) |
 
 On Raspberry Pi OS deployments, **supervisord** fills a similar process-supervision
@@ -57,7 +56,6 @@ network    # static IP or dhclient
 sysctl     # RT / latency tunables
 redis
 alloy
-fanctl
 bigfred    # loco-server + dcc-bus (hub)
 dropbear
 ```
@@ -183,7 +181,7 @@ rcu_nocb_poll
 
 | CPUs | Workload |
 |------|----------|
-| **0–1** | IRQs, Redis, Alloy, SSH, fanctl, DHCP |
+| **0–1** | IRQs, Redis, Alloy, SSH, DHCP |
 | **2–3** | **`dcc-bus`** and **`loco-server`** (Go) |
 
 Start hub processes pinned:
@@ -249,16 +247,20 @@ Device: `/dev/watchdog`. Policy:
 
 Hub scripts should pet the watchdog only when `loco-server` and `dcc-bus` are healthy.
 
-### Fan control (`fanctl`)
+### Fan control (kernel pwm-fan)
 
-Daemon: `/usr/bin/fanctl` (started in `fanctl`).
+The Pi 5 active cooler is driven by the kernel `pwm-fan` driver via
+`dtparam=fan_temp*` in `/boot/config.txt` (see
+`board/bigfred_hub/config.txt` on the reference image).
 
 | SoC temperature | Fan |
 |-----------------|-----|
-| below 45 °C | OFF |
-| 45–60 °C | LOW |
+| below 35 °C | OFF |
+| 35–60 °C | LOW |
 | 60–70 °C | MEDIUM |
 | above 70 °C | HIGH |
+
+Hysteresis is 5 °C on each trip point.
 
 ## 8.9 Log retention, crontab, and rotation
 
