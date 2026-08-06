@@ -98,12 +98,27 @@ the block-device path changes.
 | Path | Purpose |
 |------|---------|
 | `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `configure-ethernet.conf`, …) |
-| `/data/var/db/bigfred.sqlite3` | `loco-server` database (when BigFred is installed) |
+| `/data/var/db/bigfred/` | `loco-server` SQLite directory (`bigfred.sqlite3` + WAL/SHM) |
 | `/data/var/db/redis/` | Redis RDB / working files |
 | `/data/var/lib/alloy/` | Grafana Alloy state (optional) |
 | `/data/var/lib/grafana/` | Grafana data, logs, plugins |
 | `/data/var/lib/victoriametrics/` | VictoriaMetrics time-series storage |
 | `/data/logs/<service>/` | Persistent rotated logs (`bigfred`, `redis`, `alloy`, …) |
+| `/home/bigfred` | `bigfred` `$HOME` (tmpfs; no login shell) |
+
+### Service accounts
+
+Hub services drop privileges via microinit `securityContext.runAsUser`:
+
+| User | Primary group | Supplementary | Runs |
+|------|---------------|---------------|------|
+| `redis` | `redis` | — | Redis |
+| `alloy` | `alloy` | — | Grafana Alloy |
+| `bigfred` | `bigfred` | `dialout` | loco-server (serial devices) |
+| `metrics` | `metrics` | — | VictoriaMetrics, Grafana |
+
+`bigfred-os-ui` stays root (PAM / system admin). The microinit control socket
+allows `bigfred` via `socketAllowUsers` (`0660`, group of the first listed user).
 
 On **first boot**, if `/data/etc/bigfred-os-ui.conf` is missing, `mount`
 seeds it from the read-only template `/etc/bigfred/bigfred-os-ui.conf`

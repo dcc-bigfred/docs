@@ -112,10 +112,13 @@ through Alloy off-box.
 
 | Data | Path |
 |------|------|
-| SQLite (`loco-server`) | `/data/var/db/bigfred.sqlite3` |
+| SQLite (`loco-server`) | `/data/var/db/bigfred/bigfred.sqlite3` |
 | Redis persistence | `/data/var/db/redis/` |
 | Alloy state | `/data/var/lib/alloy/` |
 | Rotated file logs | `/data/logs/` (see §8.9) |
+
+Service accounts: `redis`, `alloy`, `bigfred` (+ `dialout`), `metrics`;
+`bigfred-os-ui` remains root. `bigfred` `$HOME` is `/home/bigfred` (tmpfs).
 
 SQLite pragmas (set at application open or migration):
 
@@ -411,7 +414,7 @@ Bundle `web/dist` under `/usr/share/bigfred/web` (or path configured in
 
 1. Power-on; confirm boot **under 10 s** to listening HTTP port.
 2. `ssh` via Dropbear; check `taskset` / CPU affinity in `ps`.
-3. `redis-cli ping`; SQLite file on `/data/var/db/bigfred.sqlite3`.
+3. `redis-cli ping`; SQLite file on `/data/var/db/bigfred/bigfred.sqlite3`.
 4. Attach Uhlenbrock 63120 (DR5000) or configure `z21` URI — §6, §7.
 5. Load-shed test: sustained `dcc-bus` traffic while watching `htop` and frame loss (§4.4).
 6. `rotate-hub-logs` by hand; confirm `.gz` under `/data/logs/` and `crontab -l` via BusyBox.
