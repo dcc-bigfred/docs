@@ -41,6 +41,11 @@ security (PIN + WPA, no HTTPS).
 
 Bundled fonts/CSS/JS, no CDN at runtime, `check-offline-bundle` gate.
 
+## [EMBEDDED — embedded environment guidelines](./EMBEDDED.md)
+
+SQLite/Redis durability on BigFred OS (RO root, tmpfs logs, power-loss):
+transaction rules, store split, logging, startup/shutdown checklist.
+
 ## [Authentication, Roles & Authorization](./10-authn-authz/README.md)
 
 ## [API Keys & Built-in MCP Server](./11-api-keys-and-mcp.md)
