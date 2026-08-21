@@ -85,8 +85,14 @@ locomotive from the roster.
 
 ## While you drive
 
-- Keep the app open and connected. If it stays idle too long, BigFred ends the
-  session and may brake your trains — pair again if that happens.
+- After a short pause with the app still connected, BigFred **brakes** the
+  locos that handset was driving (a few seconds). Open the throttle again and
+  they move.
+- **Z21 app / WlanMaus:** if there is no connection for about a **minute**,
+  you must pair again.
+- **Engine Driver / WiThrottle / WiFred:** closing the app does **not** drop
+  the pairing. Re-open it on the same Wi-Fi within a few days and continue
+  without a new code.
 - You can change which locomotives you may drive on the pairing page and click
   **Save** without generating a new code.
 - When you finish, use **Disconnect handset** on the pairing page or close the app
@@ -99,4 +105,4 @@ locomotive from the roster.
 | No command station in the list | Ask your club’s BigFred operator to enable handsets for this layout. |
 | Pairing code expired | Generate a new code on the pairing page. |
 | The loco does not move | Check that it is on the layout roster and included in your allowed vehicles. |
-| Connection dropped | Open the app again on the same Wi‑Fi and pair once more. |
+| Connection dropped | Open the app again on the same Wi‑Fi. Z21 / WlanMaus may need a new pairing code after about a minute offline; Engine Driver / WiThrottle usually do not. |

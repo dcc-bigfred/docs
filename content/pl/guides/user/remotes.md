@@ -90,8 +90,14 @@ właściwą lokomotywę z listy.
 
 ## Podczas jazdy
 
-- Trzymaj aplikację otwartą i połączoną. Przy zbyt długiej bezczynności BigFred
-  kończy sesję i może zahamować składy — wtedy sparuj się ponownie.
+- Po krótkiej pauzie przy wciąż otwartej aplikacji BigFred **hamuje** składy,
+  którymi ten pilot jechał (kilka sekund). Ponowne ruszenie manetki je
+  odblokowuje.
+- **Aplikacja Z21 / WlanMaus:** jeśli nie ma łączności przez około **minutę**,
+  trzeba sparować się ponownie.
+- **Engine Driver / WiThrottle / WiFred:** zamknięcie aplikacji **nie** kasuje
+  parowania. Otwórz ją znowu w tej samej sieci Wi-Fi w ciągu kilku dni i jedź
+  dalej bez nowego kodu.
 - Listę dozwolonych lokomotyw możesz zmienić na stronie parowania i zapisać
   przyciskiem **Zapisz** bez nowego kodu.
 - Po zakończeniu użyj **Rozłącz pilot** na stronie parowania albo zamknij aplikację
@@ -104,4 +110,4 @@ właściwą lokomotywę z listy.
 | Brak centralki na liście | Poproś operatora BigFreda w klubie o włączenie pilotów na tej makiecie. |
 | Kod parowania wygasł | Wygeneruj nowy kod na stronie parowania. |
 | Lokomotywa nie jedzie | Sprawdź, czy jest na makiecie i w twoim zakresie pojazdów. |
-| Połączenie się urwało | Otwórz aplikację ponownie w tej samej sieci Wi‑Fi i sparuj się jeszcze raz. |
+| Połączenie się urwało | Otwórz aplikację ponownie w tej samej sieci Wi‑Fi. Z21 / WlanMaus może wymagać nowego kodu po około minucie offline; Engine Driver / WiThrottle zwykle nie. |
