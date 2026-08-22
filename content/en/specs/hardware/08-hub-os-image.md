@@ -52,7 +52,7 @@ PID 1: microinit
 early-boot.sh (mount /data)
   ↓
 cron       # BusyBox crond (reads /etc/crontabs/root)
-network    # static IP or dhclient
+network    # micronet (gateway / static / client)
 sysctl     # RT / latency tunables
 redis
 alloy
@@ -213,28 +213,24 @@ Use **`performance`** cpufreq governor when the driver exposes it.
 
 ## 8.7 Networking
 
-Default pattern: **static IP** on `eth0` for predictable Z21 URIs and club DNS.
+The hub daemon is **`micronet`** (`/usr/sbin/micronet serve`). Config is
+`$DATA_DIR/etc/micronet.json`, seeded once from the image overlay
+(`192.168.0.1/24`, DHCP pool `.50–.200` when the hub is the gateway). Do not
+use `/etc/bigfred/network.conf` — that template is gone and was never read.
 
-| Field | Example |
-|-------|---------|
-| IP | `192.168.10.10` |
-| Mask | `255.255.255.0` |
-| Gateway | `192.168.10.1` |
+On boot micronet brings up the first physical Ethernet (`eth0` on this image),
+probes for a foreign DHCP server, then selects a mode:
 
-```bash
-ip link set eth0 up
-ip addr add 192.168.10.10/24 dev eth0
-ip route add default via 192.168.10.1
-```
+| Mode | When | Hub address | DHCP |
+|------|------|-------------|------|
+| **`client`** | Foreign DHCPOFFER | lease via `dhclient` | no |
+| **`static`** | `gateway.ip` answers ping | `.252` in the configured `/24`, default via `gateway.ip` | no |
+| **`gateway`** | empty LAN | `gateway.ip` (default `192.168.0.1`) | yes (`dnsmasq`) |
 
-Optional DHCP in `network`:
-
-```bash
-dhclient eth0
-```
-
-Document the chosen address in the club runbook; RB1110 `z21` URIs use this host
-only as the **client** — the central keeps its own IP (§7.3).
+`dtparam=eee=off` in `config.txt` disables BCM54213PE Energy Efficient Ethernet
+(Pi 5 PHY sleep / link flaps). Document the live address (`micronet status`) in
+the club runbook; RB1110 `z21` URIs use this host only as the **client** — the
+central keeps its own IP (§7.3).
 
 ## 8.8 Watchdog and cooling
 

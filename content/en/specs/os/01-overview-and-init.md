@@ -15,7 +15,7 @@ repository under `os/` (Buildroot external) and `apps/` (hub binaries).
 | **Board** | **Raspberry Pi 5** (64-bit, `bcm2712`) |
 | **Boot medium** | **microSD** (endurance class) or **NVMe** via M.2 HAT+ — same three-partition layout |
 | **Cooling** | Pi 5 active cooler; kernel `pwm-fan` adjusts speed by SoC temperature |
-| **Network** | Wired Ethernet (`eth0`) on the club LAN — static or DHCP via `configure-ethernet` |
+| **Network** | Wired Ethernet (`eth0`) on the club LAN — `micronet` (`gateway` / `static` / `client`) |
 | **USB** | Uhlenbrock 63120 LocoNet adapter (when using `loconet_serial` command stations) |
 
 The defconfig `configs/bigfred_hub_rpi5_defconfig` pins the toolchain to
@@ -97,7 +97,7 @@ the block-device path changes.
 
 | Path | Purpose |
 |------|---------|
-| `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `configure-ethernet.conf`, …) |
+| `/data/etc/` | Operator-editable config (`bigfred-os-ui.conf`, `redis.conf`, `micronet.json`, …) |
 | `/data/var/db/bigfred/` | `loco-server` SQLite directory (`bigfred.sqlite3` + WAL/SHM) |
 | `/data/var/db/redis/` | Redis RDB / working files |
 | `/data/var/lib/alloy/` | Grafana Alloy state (optional) |
@@ -175,7 +175,7 @@ prefix). Order is declared in `microinit.json` via `dependsOn`.
 |--------|-------|------|
 | **`cron`** | 1 | Starts BusyBox `crond` (`/etc/crontabs/root` — nightly `rotate-hub-logs`) |
 | **`mount`** | 2 | `mount -a`; mount or format **`/data`**; create data dirs; seed `/data/etc/`; **remount `/` read-only** |
-| **`network`** | 3 | Runs `/usr/sbin/configure-ethernet` — static club IP or DHCP; no cloud |
+| **`network`** | 3 | Runs `/usr/sbin/micronet serve` — `gateway` / `static` / `client`; no cloud |
 | **`sysctl`** | 4 | Applies `/etc/sysctl.d/*.conf` (`sched_rt_runtime_us`, `swappiness`); sets **performance** cpufreq governor |
 | **`redis`** | 5 | `redis-server /data/etc/redis.conf` — RDB `save 60 100`, data dir `/data/var/db/redis`, pinned to CPUs **0–1** |
 | **`victoriametrics`** | 6 | VictoriaMetrics on `:8428`, storage `/data/var/lib/victoriametrics` |
