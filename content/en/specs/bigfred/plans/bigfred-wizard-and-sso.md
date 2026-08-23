@@ -18,9 +18,9 @@ Related code:
 | Concern | Decision |
 |---------|----------|
 | Deploy | Hub-only (`bigfred-os` image), port **8091** |
-| Organizer auth | OAuth2 authorization code (no PKCE on LAN); silent SSO if BigFred session cookie already present |
+| Organizer auth | OAuth2 authorization code (no PKCE on LAN); silent SSO if BigFred session cookie already present. Per-client `shareSession` (default `false`) controls whether an SSO login leaves a BigFred web session cookie. |
 | Wizard config | `$DATA_DIR/etc/bigfred/wizard/bigfred-wizard.json` |
-| OAuth clients | Drop-in `$DATA_DIR/etc/bigfred/oauth-clients/{name}.json` (hot-reload); wizard seed `corsEnabled: false` |
+| OAuth clients | Drop-in `$DATA_DIR/etc/bigfred/oauth-clients/{name}.json` (hot-reload); wizard seed `corsEnabled: false`, `shareSession: false` |
 | Browser → BigFred | Same-origin to `:8091`; Rust reverse-proxies HTTP to BigFred loopback |
 | Participant ops | Generic `X-BigFred-Impersonate-As: <login>` middleware (admin actor, subject identity) |
 | User DCC | `POST /users` + `autoAllocateDccCount: N` — free addresses from **50** upward |
@@ -35,9 +35,20 @@ Related code:
 ### Silent SSO
 
 `GET /api/v1/auth/oauth/authorize` with a valid `bigfred_session` cookie issues a
-one-time code and redirects to the client **without** showing LoginPage. Login
-is only shown when there is no session. LoginPage with `return_to` also
-auto-navigates when already authenticated.
+one-time code and redirects to the client **without** showing LoginPage.
+
+When the cookie is missing, Authorize redirects to LoginPage. If the OAuth
+client has `shareSession: false` (the default, including the wizard drop-in),
+the login URL includes `ephemeral=1`. Login then returns a one-time
+`loginTicket` instead of setting `bigfred_session`, and LoginPage resumes
+Authorize with `login_ticket`. The operator is **not** left signed in to the
+BigFred web UI.
+
+`shareSession: true` restores the previous behaviour: a successful SSO login
+sets `bigfred_session` so the operator is also signed in to BigFred.
+
+LoginPage with `return_to` also auto-navigates when already authenticated
+(silent SSO in the reverse direction is unchanged).
 
 ### Impersonation
 
