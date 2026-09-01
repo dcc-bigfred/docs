@@ -2,7 +2,7 @@
 
 This document describes the proposed architecture for a web application that
 controls model railroad locomotives. It builds on top of the existing
-`pkgs/loco` and `pkgs/rb` packages (Go core), which already provide a clean
+`pkgs/loco` package (Go core), which already provides a clean
 `LocoApp` controller layer, a `Station` interface (Z21, LocoNet) and SQLite
 access via `modernc.org/sqlite` (pure Go, `CGO_ENABLED=0`).
 

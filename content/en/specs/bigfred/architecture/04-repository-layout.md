@@ -117,9 +117,7 @@ pkgs/
 ├── loco/                       # existing – core domain
 │   ├── app/                    # LocoApp – controller layer
 │   ├── commandstation/         # Z21, LocoNet
-│   ├── decoders/
 │   └── syntax/
-├── rb/                         # existing – Railbox-specific code
 │
 └── bigfred/                    # BigFred application stack (server, dcc-bus, contract)
     ├── contract/               # Redis wire contract between server ↔ dcc-bus (§3.2)

@@ -53,7 +53,7 @@ package security
 import (
     "time"
 
-    "github.com/keskad/loco/pkgs/bigfred/server/domain"
+    "github.com/dcc-bigfred/bigfred/pkgs/bigfred/server/domain"
 )
 
 // LocoSecurityContext is a stateless policy. Construct it with a zero

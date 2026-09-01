@@ -106,8 +106,7 @@ cross-binary shared code:
 ```
 pkgs/
 ├── bigfred/      # domain, server, dcc-bus, z21pairing, ...
-├── loco/
-└── rb/
+└── loco/
 ```
 
 This is a deliberate deviation from the reference layout; document your own
