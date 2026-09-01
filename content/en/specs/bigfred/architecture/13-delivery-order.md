@@ -6,7 +6,7 @@ Implemented in milestones; each milestone is independently shippable.
 
 1. Add the new `pkgs/bigfred/server` package with `chi` + `coder/websocket` and a
    single `/api/v1/ws` endpoint that echoes messages. Build it as a third
-   binary next to `loco` and `rb`.
+   binary next to `loco`.
 2. Expose `LocoService` as a thin wrapper over the existing `app.LocoApp`
    (reuse, do not rewrite). DCC dispatch stays **in-process**; §7e will
    move it into the sibling `dcc-bus` daemon in M4.5 below.

@@ -33,7 +33,7 @@ using one of:
 | Tool | Platform |
 |------|----------|
 | Uhlenbrock **LocoNet-Tool** (bundled with art. **63120**) | Windows |
-| **`rb lncv`** (BigFred CLI) | Linux / macOS / Windows |
+| **`loco lncv`** (BigFred CLI) | Linux / macOS / Windows |
 
 | LNCV | Set to | Meaning |
 |------|--------|---------|
@@ -42,9 +42,9 @@ using one of:
 
 Reference table from [LocoNet-over-TCP](https://loconetovertcp.sourceforge.net/Interface/) (mode “LocoNet Direktmodus”).
 
-### 4.2.1 `rb lncv` on Linux
+### 4.2.1 `loco lncv` on Linux
 
-The **`rb`** CLI implements the Uhlenbrock LNCV protocol (same message layout as
+The **`loco`** CLI implements the Uhlenbrock LNCV protocol (same message layout as
 [JMRI `LncvMessageContents`](https://github.com/JMRI/JMRI/blob/master/java/src/jmri/jmrix/loconet/uhlenbrock/LncvMessageContents.java)).
 Use it when LocoNet-Tool is not available.
 
@@ -60,7 +60,7 @@ Use it when LocoNet-Tool is not available.
 **Read module address (CV0)**
 
 ```bash
-rb lncv get --device /dev/ttyUSB0 --baud 115200 --article 63120 --addr 1 0
+loco lncv get --device /dev/ttyUSB0 --baud 115200 --article 63120 --addr 1 0
 ```
 
 Expect `1` for a factory-default 63120. Article `63120` is normalised to **6312**
@@ -73,13 +73,13 @@ and are **not acknowledged** on the wire. Use **`--self-config`**:
 
 ```bash
 # Still at factory 115200 — set Direktmodus first
-rb lncv set --self-config --device /dev/ttyUSB0 --baud 115200 --article 63120 4 1
+loco lncv set --self-config --device /dev/ttyUSB0 --baud 115200 --article 63120 4 1
 
 # Set baud to 57600 (LNCV 2 = 3); reconnect at 57600 for verification
-rb lncv set --self-config --device /dev/ttyUSB0 --baud 115200 --article 63120 2 3
+loco lncv set --self-config --device /dev/ttyUSB0 --baud 115200 --article 63120 2 3
 
-rb lncv get --device /dev/ttyUSB0 --baud 57600 --article 63120 2
-rb lncv get --device /dev/ttyUSB0 --baud 57600 --article 63120 4
+loco lncv get --device /dev/ttyUSB0 --baud 57600 --article 63120 2
+loco lncv get --device /dev/ttyUSB0 --baud 57600 --article 63120 4
 ```
 
 On success, `--self-config` prints that the value was **sent** and the adapter
@@ -107,7 +107,7 @@ applies it without a LocoNet acknowledge — reconnect at the new baud to verify
 | `LNCV write sent to adapter … reconnect with the new settings` (`--self-config`) | Normal for CV2/CV4 — verify after reconnect |
 
 The 63120 handbook (§5) requires **echo-based flow control**: each frame sent over
-USB is echoed back from the bus before the next send. `rb lncv` follows this for
+USB is echoed back from the bus before the next send. `loco lncv` follows this for
 programming sessions and always sends **prog-end** so the adapter is not left in
 programming mode.
 

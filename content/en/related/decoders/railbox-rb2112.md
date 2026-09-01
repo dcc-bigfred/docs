@@ -332,7 +332,7 @@ Decoders marked with the RailCom® symbol support bidirectional communication wi
 |--------|-------|
 | Write **CV #8** | **Any value** triggers factory reset to defaults |
 
-After reset, re-program address (CV #1 / #17–#18 / #29) and output mapping as needed. Use `--preserve-addr` with `loco prog factory-reset` to keep the current address (RailBOX family: CV #8 = **1** in the Loco CLI implementation for RB23xx; RB 2112 manual states any CV #8 write resets).
+After reset, re-program address (CV #1 / #17–#18 / #29) and output mapping as needed. RB 2112: any write to CV #8 resets. Restore the address with `loco prog addr` / `loco prog cv`.
 
 ---
 
@@ -404,20 +404,4 @@ Condensed from the manufacturer PDF. Output mapping detail: [§3](#3-output-mapp
 
 ## Relation to Loco CLI
 
-| Feature | RB 2112 support in Loco |
-|---------|-------------------------|
-| Detection (CV #7 / #8) | Wagon reports **CV #8 = 13** (factory default per manual); locomotive RB 23xx uses NMRA **172** |
-| `loco prog factory-reset` | CV #8 write — value **1** for RailBOX family in Loco CLI |
-| `loco prog mapping set` | CV #120–#177 / #190–#247 bit tables (F0–F28, both directions by default). Outputs: `F0_F`, `F0_R`, `O2`–`O14` (output 1 is split into `F0_F`/`F0_R`, so `O1` is not accepted) |
-
-Mapping examples:
-
-```bash
-# Headlights: front light on F0 forward, rear light on F0 reverse
-loco prog mapping set F0 F0_F --forward
-loco prog mapping set F0 F0_R --reverse
-
-# Map F2 to interior outputs O3 and O5
-loco prog mapping set F2 O3,O5
-```
-| `loco prog brightness` | CV #41–#48 (O1–O8), #106–#110 (O9–O13); output O14 has no max-brightness CV in manual |
+Loco programs CVs generically (`loco prog cv` / `loco prog addr`). Wagon identity is **CV #8 = 13**; locomotive RB 23xx uses NMRA manufacturer **172**. Output mapping (CV #120–#177 / #190–#247) and brightness (CV #41–#48, #106–#110) are ordinary CV writes — there is no decoder-profile subcommand.

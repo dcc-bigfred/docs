@@ -39,7 +39,7 @@ import (
     "github.com/go-rel/rel"
     "github.com/go-rel/rel/where"
 
-    "github.com/keskad/loco/pkgs/bigfred/server/domain"
+    "github.com/dcc-bigfred/bigfred/pkgs/bigfred/server/domain"
 )
 
 // ActiveVehicleLease returns the currently active lease for a vehicle

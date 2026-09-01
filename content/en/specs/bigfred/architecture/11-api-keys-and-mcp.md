@@ -123,7 +123,7 @@ import (
 
     "github.com/mark3labs/mcp-go/server"
 
-    "github.com/keskad/loco/pkgs/bigfred/server/service"
+    "github.com/dcc-bigfred/bigfred/pkgs/bigfred/server/service"
 )
 
 func New(loco *service.LocoService, radio *service.RadioService) *server.MCPServer {
